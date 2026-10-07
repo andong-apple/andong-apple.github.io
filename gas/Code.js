@@ -1,10 +1,11 @@
 /** 사과농장 주문앱 - Code.gs (구글 시트에 연결된 스크립트)
  *  화면은 GitHub Pages(SITE)에 있고, 이 스크립트는 doPost로 데이터만 주고받습니다. */
-const VER = 'v10';
+const VER = 'v11';
 const SITE = 'https://andong-apple.github.io/';
 const ORD = '현재주문', CFG = '설정', TZ = 'Asia/Seoul';
-// 받는사람 열은 v10에서 추가: 기존 주문 열 위치가 바뀌지 않도록 맨 뒤에 붙임
-const HEAD = ['주문번호','주문시각','입금일자','입금자명','연락처','배송지','옵션','수량','금액','상태','받는사람','받는사람연락처'];
+const HEAD = ['주문번호','주문시각','입금일자','입금자명','연락처','받는사람','받는사람연락처','배송지','옵션','수량','금액','상태'];
+// v10 이전 주문표의 앞 10칸 (ensureHeader_에서 열 위치를 옮길 때 사용)
+const LEGACY = ['주문번호','주문시각','입금일자','입금자명','연락처','배송지','옵션','수량','금액','상태'];
 const DEFAULT = {
   name: '감홍사과',
   intro: '30년 경력 전문 농장에서 정성껏 키운 햇사과입니다.',
@@ -85,14 +86,17 @@ function ensureHeader_(o) {
   const first = n > 0 ? o.getRange(1, 1, 1, n).getValues()[0] : [];
   const ok = HEAD.every(function (h, i) { return first[i] === h; });
   if (!ok) {
-    // 이전 버전 헤더(앞 10칸 일치)면 새 열 이름만 덧붙이고, 아니면 기존 내용을 한 칸 아래로 보존
-    const older = HEAD.slice(0, 10).every(function (h, i) { return first[i] === h; });
-    if (!older && o.getLastRow() > 0) o.insertRowBefore(1);
+    if (LEGACY.every(function (h, i) { return first[i] === h; })) {
+      // 예전 주문표: 받는사람 열을 연락처 뒤(F:G)로 옮김. 열 통째로 옮기므로 기존 주문도 함께 이동
+      if (first[10] === '받는사람' && first[11] === '받는사람연락처') o.moveColumns(o.getRange('K:L'), 6);
+      else o.insertColumnsAfter(5, 2);
+    } else if (o.getLastRow() > 0) {
+      o.insertRowBefore(1); // 알 수 없는 내용(혹시 주문 데이터)은 한 칸 아래로 보존
+    }
     o.getRange(1, 1, 1, HEAD.length).setValues([HEAD]);
     o.setFrozenRows(1);
   }
-  o.getRange('A:E').setNumberFormat('@'); // 날짜/전화번호 자동변환 방지
-  o.getRange('K:L').setNumberFormat('@');
+  o.getRange('A:G').setNumberFormat('@'); // 날짜/전화번호 자동변환 방지
 }
 function readCfg_(c) {
   const raw = c.getRange('B1').getValue();
@@ -149,7 +153,7 @@ function submitOrder(o) {
     if (qty > opt.stock) return { ok: false, msg: '해당 옵션의 잔여 수량이 ' + opt.stock + '개뿐입니다.' };
     const id = Utilities.formatDate(new Date(), TZ, 'yyMMdd-HHmmss') + '-' + (t.o.getLastRow());
     t.o.appendRow([id, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm:ss'), o.date, name,
-      o.phone, addr, opt.name, qty, Number(opt.price) * qty, '접수', rname, o.rphone]);
+      o.phone, rname, o.rphone, addr, opt.name, qty, Number(opt.price) * qty, '접수']);
     opt.stock -= qty;
     t.c.getRange('B1').setValue(JSON.stringify(cfg));
     cache.put('r' + o.rid, '1', 600);
@@ -210,7 +214,7 @@ function setStatus(t, id, status) {
   return withLock_(function () {
     const o = init_().o, ids = o.getRange('A:A').getValues();
     for (let i = 1; i < ids.length; i++) {
-      if (ids[i][0] === id) { o.getRange(i + 1, 10).setValue(status === '입금확인' ? '입금확인' : '접수'); return { ok: true }; }
+      if (ids[i][0] === id) { o.getRange(i + 1, HEAD.indexOf('상태') + 1).setValue(status === '입금확인' ? '입금확인' : '접수'); return { ok: true }; }
     }
     return { ok: false };
   });
