@@ -256,7 +256,8 @@ async function submit(){
 async function openLogin(){
   const pw=await P('판매자 비밀번호를 입력하세요','password');if(!pw)return;
   try{const r=await run('login',pw);if(!r.ok){await A(r.msg);return}
-    S.token=r.token;await admin(true);
+    S.token=r.token;
+    if(r.data){S.data=r.data;S.draft=JSON.parse(JSON.stringify(r.data.cfg));await admin()}else await admin(true);
     if(r.defaultPw)await A('초기 비밀번호(1234)를 사용 중입니다. [설정] 탭에서 꼭 변경해 주세요.');
   }catch(e){await A(e.message||e)}
 }
@@ -276,8 +277,12 @@ async function admin(reload){
   const sv=document.getElementById('save');if(sv)sv.onclick=save;
 }
 async function save(){
-  try{await run('saveConfig',S.token,S.draft);S.cfg=S.draft;S.data=null;toast('저장되었습니다');await admin(true)}
-  catch(e){await A(e.message||e)}
+  const sv=document.getElementById('save');if(sv){sv.disabled=true;sv.textContent='저장 중...'}
+  try{const r=await run('saveConfig',S.token,S.draft);const c=r.cfg||S.draft;
+    S.cfg=JSON.parse(JSON.stringify(c));S.data.cfg=JSON.parse(JSON.stringify(c));S.draft=JSON.parse(JSON.stringify(c));
+    try{localStorage.setItem('pub',JSON.stringify({cfg:c,ver:S.ver}))}catch(e){}
+    toast('저장되었습니다');admin()}
+  catch(e){if(sv){sv.disabled=false;sv.textContent='저장하기'}await A(e.message||e)}
 }
 /* 택배 엑셀: 롯데택배 양식(lotte-template.xlsx)을 열어 서식은 그대로 두고 값만 채움.
    양식 서식을 보존하려고 ExcelJS 사용 (택배 엑셀을 누를 때만 불러옴) */
@@ -335,7 +340,13 @@ function pOrders(){
     if(!D.orders.length){await A('주문이 없습니다.');return}
     try{await lotteExcel(D);toast('택배 엑셀을 저장했습니다')}
     catch(e){await A('택배 엑셀을 만들지 못했습니다. 인터넷 연결을 확인하거나 구글시트를 열어 주세요.')}};
-  pane.querySelectorAll('.stbtn').forEach(b=>b.onclick=async()=>{const n=b.dataset.s==='입금확인'?'접수':'입금확인';await run('setStatus',S.token,b.dataset.id,n);admin(true)});
+  const iS=D.head.indexOf('상태');
+  const setBtn=(b,s)=>{b.dataset.s=s;b.textContent=s;b.classList.toggle('ok',s==='입금확인');
+    const row=D.orders.find(r=>r[0]===b.dataset.id&&r[iS]);if(row)row[iS]=s};
+  pane.querySelectorAll('.stbtn').forEach(b=>b.onclick=async()=>{
+    const was=b.dataset.s,n=was==='입금확인'?'접수':'입금확인';setBtn(b,n);
+    try{const r=await run('setStatus',S.token,b.dataset.id,n);if(!r.ok)throw new Error('주문을 찾지 못했습니다. 새로고침해 주세요.')}
+    catch(e){setBtn(b,was);await A(e.message||e)}});
   document.getElementById('nr').onclick=async()=>{
     const n=await P('모든 옵션의 재고를 같은 값으로 초기화할까요? 비우고 확인을 누르면 현재 재고값을 그대로 유지합니다.','number','');
     if(n===null)return;

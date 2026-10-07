@@ -1,6 +1,6 @@
 /** 하늘뫼농원 주문앱 - Code.gs (구글 시트에 연결된 스크립트)
  *  화면은 GitHub Pages(SITE)에 있고, 이 스크립트는 doPost로 데이터만 주고받습니다. */
-const VER = 'v12';
+const VER = 'v13';
 const SITE = 'https://andong-apple.github.io/';
 const ORD = '현재주문', CFG = '설정', TZ = 'Asia/Seoul';
 // 한 주문에 받는 곳이 여러 개면 받는 곳마다 한 줄. 입금자·옵션·수량·금액·상태는 맨 윗줄에만 기록
@@ -74,7 +74,7 @@ function init_() {
   let c = s.getSheetByName(CFG);
   if (!c) { c = s.insertSheet(CFG); c.getRange('A1:B1').setValues([['config', JSON.stringify(DEFAULT)]]); }
   let o = s.getSheetByName(ORD);
-  if (!o) { o = s.insertSheet(ORD); o.setFrozenRows(1); }
+  if (!o) { o = s.insertSheet(ORD); o.setFrozenRows(1); o.getRange('A:H').setNumberFormat('@'); }
   ensureHeader_(o);
   return { c: c, o: o };
 }
@@ -105,8 +105,14 @@ function ensureHeader_(o) {
     }
     o.getRange(1, 1, 1, HEAD.length).setValues([HEAD]);
     o.setFrozenRows(1);
+    o.getRange('A:H').setNumberFormat('@'); // 날짜/전화번호/우편번호 자동변환 방지 (열 구조가 바뀔 때만)
   }
-  o.getRange('A:H').setNumberFormat('@'); // 날짜/전화번호/우편번호 자동변환 방지
+}
+/** 설정은 시트(설정!B1)에 저장하고, 같은 값을 캐시에도 넣어 구매자 화면 응답을 빠르게 함 */
+function writeCfg_(c, cfg) {
+  const s = JSON.stringify(cfg);
+  c.getRange('B1').setValue(s);
+  try { CacheService.getScriptCache().put('cfg', s, 600); } catch (e) { /* 캐시 실패는 무시 */ }
 }
 function readCfg_(c) {
   const raw = c.getRange('B1').getValue();
@@ -120,7 +126,7 @@ function readCfg_(c) {
   } catch (e) { /* 아래에서 복구 */ }
   // 설정 값이 비어 있거나 손상된 경우 기본값으로 복구 (주문 처리가 막히지 않도록)
   const fresh = JSON.parse(JSON.stringify(DEFAULT));
-  c.getRange('B1').setValue(JSON.stringify(fresh));
+  writeCfg_(c, fresh);
   return fresh;
 }
 function clean_(v, n) {
@@ -138,7 +144,11 @@ function withLock_(fn) {
 
 /* ---------- 구매자용 ---------- */
 function getPublic() {
-  return { cfg: readCfg_(init_().c), ver: VER };
+  const cache = CacheService.getScriptCache(), hit = cache.get('cfg');
+  if (hit) return { cfg: JSON.parse(hit), ver: VER };
+  const cfg = readCfg_(init_().c);
+  cache.put('cfg', JSON.stringify(cfg), 600);
+  return { cfg: cfg, ver: VER };
 }
 
 function submitOrder(o) {
@@ -188,7 +198,7 @@ function submitOrder(o) {
     if (need > 0) t.o.insertRowsAfter(t.o.getMaxRows(), need);
     t.o.getRange(last + 1, 1, rows.length, HEAD.length).setValues(rows);
     opt.stock -= qty;
-    t.c.getRange('B1').setValue(JSON.stringify(cfg));
+    writeCfg_(t.c, cfg);
     cache.put('r' + o.rid, '1', 600);
     return { ok: true, id: id, left: opt.stock, total: Number(opt.price) * qty };
   });
@@ -207,7 +217,7 @@ function login(pw) {
   cache.remove('fail');
   const token = Utilities.getUuid();
   cache.put('t' + token, '1', 21600);
-  return { ok: true, token: token, defaultPw: cur === hash_('1234') };
+  return { ok: true, token: token, defaultPw: cur === hash_('1234'), data: adminData(token) };
 }
 
 function adminData(t) {
@@ -237,8 +247,8 @@ function saveConfig(t, cfg) {
   };
   if (!clean.options.length) throw new Error('옵션을 1개 이상 등록해 주세요.');
   return withLock_(function () {
-    init_().c.getRange('B1').setValue(JSON.stringify(clean));
-    return { ok: true };
+    writeCfg_(init_().c, clean);
+    return { ok: true, cfg: clean };
   });
 }
 
@@ -265,7 +275,7 @@ function newRound(t, resetTo) {
     if (resetTo !== null && resetTo !== '' && resetTo !== undefined) {
       const cfg = readCfg_(x.c), n2 = Math.max(0, Math.floor(Number(resetTo) || 0));
       cfg.options.forEach(function (o) { o.stock = n2; });
-      x.c.getRange('B1').setValue(JSON.stringify(cfg));
+      writeCfg_(x.c, cfg);
     }
     return { ok: true, tab: name };
   });
