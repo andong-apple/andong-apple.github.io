@@ -62,6 +62,7 @@ th,td{padding:9px 10px;border-bottom:1px solid #eee;text-align:left}th{backgroun
 .hint{font-size:12px;color:#888;margin-top:4px;line-height:1.4}
 .pv{position:fixed;top:60px;right:10px;z-index:9;background:#111;color:#fff;padding:10px 14px;border-radius:99px;font-weight:700;font-size:13px}
 .done{text-align:center;padding:60px 24px}.done h1{margin-bottom:12px}.done p{line-height:1.7;margin:6px 0}
+.tel{color:#1a5fb4;font-weight:700;text-decoration:underline}
 .ver{text-align:center;color:#aaa;font-size:11px;padding:10px 0 6px}
 #toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:99px;font-size:14px;z-index:20;display:none}
 .mo{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px}
@@ -138,7 +139,6 @@ function buyer(preview,keep){
     <div class="f"><label>연락처</label><div class="ph"><span>010</span><input id="phone" inputmode="numeric" maxlength="9" placeholder="0000-0000" ${out?'disabled':''}></div></div>
     <div class="f"><label>배송지 주소</label><textarea id="addr" maxlength="200" placeholder="받으실 주소를 상세히 입력해 주세요" ${out?'disabled':''}></textarea></div>
   </section>
-  <div class="ver">v.${esc(S.ver)}</div>
   <div class="cta"><button id="go" ${out||preview?'disabled':''}>${out?'품절되었습니다':'입금완료 후 주문신청'}</button></div>`;
   if(preview){document.getElementById('back').onclick=()=>admin();return}
   document.getElementById('adm').onclick=openLogin;
@@ -200,7 +200,7 @@ function pOrders(){
   pane.innerHTML=`<div class="box"><div class="h"><span>총 ${rows.length}건</span><button class="btn" id="rf">새로고침</button></div>
   <div class="row" style="flex-wrap:wrap"><button class="btn" id="cp">표 내용 복사하기</button><button class="btn" id="csv">CSV 저장</button><a class="btn" style="text-align:center;text-decoration:none;color:inherit" href="${esc(D.url)}" target="_blank">구글시트 열기</a></div>
   <p class="hint">CSV 저장이 안 되면(앱 내 브라우저) '복사하기' 후 붙여넣거나 구글시트를 여세요.</p>${isKakao?'<button class="btn" style="width:100%;margin-top:8px" onclick="openOut()">카카오톡 밖 브라우저로 열기</button>':''}</div>
-  <div class="tw"><table><tr>${D.head.map(h=>`<th>${h}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map((c,i)=>i===9?`<td><button class="stbtn ${c==='입금확인'?'ok':''}" data-id="${esc(r[0])}" data-s="${esc(c)}">${esc(c)}</button></td>`:`<td>${esc(c)}</td>`).join('')}</tr>`).join('')||'<tr><td colspan="10">주문이 없습니다</td></tr>'}</table></div>
+  <div class="tw"><table><tr>${D.head.map(h=>`<th>${h}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map((c,i)=>i===4&&c?`<td><a class="tel" href="sms:${esc(c.replace(/[^\d]/g,''))}">${esc(c)}</a></td>`:i===9?`<td><button class="stbtn ${c==='입금확인'?'ok':''}" data-id="${esc(r[0])}" data-s="${esc(c)}">${esc(c)}</button></td>`:`<td>${esc(c)}</td>`).join('')}</tr>`).join('')||'<tr><td colspan="10">주문이 없습니다</td></tr>'}</table></div>
   <div class="box" style="margin-top:14px"><div class="h">새로운 판매 시작</div><p class="hint" style="margin:0 0 10px">현재 주문을 '날짜_차수' 탭으로 보관하고, 주문표를 비웁니다. 옵션별 재고는 [상품·광고] 탭에서 직접 설정할 수도 있고, 여기서 한 번에 같은 값으로 초기화할 수도 있습니다.</p><button class="btn g" id="nr" style="width:100%">새로운 판매 시작</button></div>`;
   document.getElementById('rf').onclick=()=>admin(true);
   const text=()=>[D.head].concat(D.orders).map(r=>r.join('\t')).join('\n');
