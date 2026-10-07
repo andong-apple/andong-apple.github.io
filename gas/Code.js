@@ -1,11 +1,10 @@
 /** 사과농장 주문앱 - Code.gs (구글 시트에 연결된 스크립트)
  *  화면은 GitHub Pages(SITE)에 있고, 이 스크립트는 doPost로 데이터만 주고받습니다. */
-const VER = 'v11';
+const VER = 'v12';
 const SITE = 'https://andong-apple.github.io/';
 const ORD = '현재주문', CFG = '설정', TZ = 'Asia/Seoul';
-const HEAD = ['주문번호','주문시각','입금일자','입금자명','연락처','받는사람','받는사람연락처','배송지','옵션','수량','금액','상태'];
-// v10 이전 주문표의 앞 10칸 (ensureHeader_에서 열 위치를 옮길 때 사용)
-const LEGACY = ['주문번호','주문시각','입금일자','입금자명','연락처','배송지','옵션','수량','금액','상태'];
+// 한 주문에 받는 곳이 여러 개면 받는 곳마다 한 줄. 입금자·옵션·수량·금액·상태는 맨 윗줄에만 기록
+const HEAD = ['주문번호','주문시각','입금일자','입금자명','연락처','받는사람','받는사람연락처','우편번호','배송지','보낼수량','옵션','수량','금액','상태'];
 const DEFAULT = {
   name: '감홍사과',
   intro: '30년 경력 전문 농장에서 정성껏 키운 햇사과입니다.',
@@ -82,21 +81,32 @@ function init_() {
 /** 1행이 지정된 헤더와 다르면(비어있거나, 삭제됐거나, 주문이 1행에 들어간 경우) 자동으로 헤더 행을 복구/삽입 */
 function ensureHeader_(o) {
   if (o.getMaxColumns() < HEAD.length) o.insertColumnsAfter(o.getMaxColumns(), HEAD.length - o.getMaxColumns());
-  const n = o.getLastColumn();
-  const first = n > 0 ? o.getRange(1, 1, 1, n).getValues()[0] : [];
-  const ok = HEAD.every(function (h, i) { return first[i] === h; });
-  if (!ok) {
-    if (LEGACY.every(function (h, i) { return first[i] === h; })) {
-      // 예전 주문표: 받는사람 열을 연락처 뒤(F:G)로 옮김. 열 통째로 옮기므로 기존 주문도 함께 이동
-      if (first[10] === '받는사람' && first[11] === '받는사람연락처') o.moveColumns(o.getRange('K:L'), 6);
-      else o.insertColumnsAfter(5, 2);
+  const row1 = function () { return o.getRange(1, 1, 1, o.getLastColumn() || 1).getValues()[0]; };
+  let first = row1();
+  if (!HEAD.every(function (h, i) { return first[i] === h; })) {
+    if (first[0] === '주문번호') {
+      // 예전 주문표: 열 이름을 기준으로 HEAD 순서에 맞게 열을 옮기거나 빈 열을 끼워 넣음 (기존 주문도 열째로 함께 이동)
+      const added = [];
+      HEAD.forEach(function (h, i) {
+        const j = first.indexOf(h);
+        if (j === i) return;
+        if (j > i) o.moveColumns(o.getRange(1, j + 1), i + 1);
+        else { o.insertColumnBefore(i + 1); added.push(h); }
+        first = row1();
+      });
+      // 예전 주문은 받는 곳이 한 곳이므로 보낼수량 = 수량
+      const last = o.getLastRow();
+      if (added.indexOf('보낼수량') >= 0 && last > 1) {
+        o.getRange(2, HEAD.indexOf('보낼수량') + 1, last - 1, 1)
+          .setValues(o.getRange(2, HEAD.indexOf('수량') + 1, last - 1, 1).getValues());
+      }
     } else if (o.getLastRow() > 0) {
       o.insertRowBefore(1); // 알 수 없는 내용(혹시 주문 데이터)은 한 칸 아래로 보존
     }
     o.getRange(1, 1, 1, HEAD.length).setValues([HEAD]);
     o.setFrozenRows(1);
   }
-  o.getRange('A:G').setNumberFormat('@'); // 날짜/전화번호 자동변환 방지
+  o.getRange('A:H').setNumberFormat('@'); // 날짜/전화번호/우편번호 자동변환 방지
 }
 function readCfg_(c) {
   const raw = c.getRange('B1').getValue();
@@ -142,18 +152,41 @@ function submitOrder(o) {
     if (!(qty >= 1 && qty <= maxQty)) return { ok: false, msg: '1인당 최대 ' + maxQty + '개까지 신청 가능합니다.' };
     if (!/^010-\d{4}-\d{4}$/.test(o.phone || '')) return { ok: false, msg: '연락처 11자리를 정확히 입력해 주세요.' };
     if (!/^\d{4}-\d{2}-\d{2}$/.test(o.date || '')) return { ok: false, msg: '입금일자를 확인해 주세요.' };
-    // 받는사람 칸이 없는 예전 화면(캐시)에서 온 주문은 입금자 정보로 채움
-    if (o.rname === undefined) { o.rname = o.name; o.rphone = o.phone; }
-    const name = clean_(o.name, 30), addr = clean_(o.addr, 200), rname = clean_(o.rname, 30);
-    if (!name || !addr) return { ok: false, msg: '입금자명과 주소를 입력해 주세요.' };
-    if (!rname) return { ok: false, msg: '받는 사람 이름을 입력해 주세요.' };
-    if (!/^010-\d{4}-\d{4}$/.test(o.rphone || '')) return { ok: false, msg: '받는 사람 연락처 11자리를 정확히 입력해 주세요.' };
+    const name = clean_(o.name, 30);
+    if (!name) return { ok: false, msg: '입금자명을 입력해 주세요.' };
+    // 받는 곳 목록. 받는 곳 목록이 없는 예전 화면(캐시)에서 온 주문은 한 곳으로 변환
+    let recips = o.recips;
+    if (!Array.isArray(recips)) {
+      const old = o.rname === undefined;
+      recips = [{ rname: old ? o.name : o.rname, rphone: old ? o.phone : o.rphone, zip: '', addr: o.addr, qty: qty }];
+    }
+    if (!recips.length || recips.length > qty) return { ok: false, msg: '받는 곳은 1곳 이상, 주문 수량 이하로 입력해 주세요.' };
+    const rs = [];
+    let sum = 0;
+    for (let k = 0; k < recips.length; k++) {
+      const r = recips[k] || {}, no = recips.length > 1 ? (k + 1) + '번째 받는 곳의 ' : '';
+      const rn = clean_(r.rname, 30), q = Math.floor(Number(r.qty));
+      const ad = clean_([r.addr, r.detail].map(function (x) { return String(x == null ? '' : x).trim(); }).filter(String).join(' '), 250);
+      if (!rn) return { ok: false, msg: no + '받는 사람 이름을 입력해 주세요.' };
+      if (!/^010-\d{4}-\d{4}$/.test(r.rphone || '')) return { ok: false, msg: no + '받는 사람 연락처 11자리를 정확히 입력해 주세요.' };
+      if (!ad) return { ok: false, msg: no + '배송지 주소를 입력해 주세요.' };
+      if (!(q >= 1)) return { ok: false, msg: no + '보낼 수량을 확인해 주세요.' };
+      sum += q;
+      rs.push([rn, r.rphone, /^\d{5}$/.test(r.zip || '') ? r.zip : '', ad, q]);
+    }
+    if (sum !== qty) return { ok: false, msg: '받는 곳별 수량 합계(' + sum + '개)가 주문 수량(' + qty + '개)과 다릅니다.' };
     opt.stock = Number(opt.stock) || 0;
     if (opt.stock <= 0) return { ok: false, msg: '품절된 옵션입니다.' };
     if (qty > opt.stock) return { ok: false, msg: '해당 옵션의 잔여 수량이 ' + opt.stock + '개뿐입니다.' };
     const id = Utilities.formatDate(new Date(), TZ, 'yyMMdd-HHmmss') + '-' + (t.o.getLastRow());
-    t.o.appendRow([id, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm:ss'), o.date, name,
-      o.phone, rname, o.rphone, addr, opt.name, qty, Number(opt.price) * qty, '접수']);
+    const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm:ss'), price = Number(opt.price) * qty;
+    const rows = rs.map(function (r, k) {
+      return k === 0 ? [id, now, o.date, name, o.phone].concat(r, [opt.name, qty, price, '접수'])
+                     : [id, '', '', '', ''].concat(r, ['', '', '', '']);
+    });
+    const last = t.o.getLastRow(), need = last + rows.length - t.o.getMaxRows();
+    if (need > 0) t.o.insertRowsAfter(t.o.getMaxRows(), need);
+    t.o.getRange(last + 1, 1, rows.length, HEAD.length).setValues(rows);
     opt.stock -= qty;
     t.c.getRange('B1').setValue(JSON.stringify(cfg));
     cache.put('r' + o.rid, '1', 600);
