@@ -1,9 +1,10 @@
 /** 사과농장 주문앱 - Code.gs (구글 시트에 연결된 스크립트)
  *  화면은 GitHub Pages(SITE)에 있고, 이 스크립트는 doPost로 데이터만 주고받습니다. */
-const VER = 'v9';
+const VER = 'v10';
 const SITE = 'https://andong-apple.github.io/';
 const ORD = '현재주문', CFG = '설정', TZ = 'Asia/Seoul';
-const HEAD = ['주문번호','주문시각','입금일자','입금자명','연락처','배송지','옵션','수량','금액','상태'];
+// 받는사람 열은 v10에서 추가: 기존 주문 열 위치가 바뀌지 않도록 맨 뒤에 붙임
+const HEAD = ['주문번호','주문시각','입금일자','입금자명','연락처','배송지','옵션','수량','금액','상태','받는사람','받는사람연락처'];
 const DEFAULT = {
   name: '감홍사과',
   intro: '30년 경력 전문 농장에서 정성껏 키운 햇사과입니다.',
@@ -79,14 +80,19 @@ function init_() {
 }
 /** 1행이 지정된 헤더와 다르면(비어있거나, 삭제됐거나, 주문이 1행에 들어간 경우) 자동으로 헤더 행을 복구/삽입 */
 function ensureHeader_(o) {
-  const first = o.getLastColumn() >= HEAD.length ? o.getRange(1, 1, 1, HEAD.length).getValues()[0] : [];
+  if (o.getMaxColumns() < HEAD.length) o.insertColumnsAfter(o.getMaxColumns(), HEAD.length - o.getMaxColumns());
+  const n = o.getLastColumn();
+  const first = n > 0 ? o.getRange(1, 1, 1, n).getValues()[0] : [];
   const ok = HEAD.every(function (h, i) { return first[i] === h; });
   if (!ok) {
-    if (o.getLastRow() > 0) o.insertRowBefore(1); // 기존 내용(혹시 주문 데이터)은 한 칸 아래로 보존
+    // 이전 버전 헤더(앞 10칸 일치)면 새 열 이름만 덧붙이고, 아니면 기존 내용을 한 칸 아래로 보존
+    const older = HEAD.slice(0, 10).every(function (h, i) { return first[i] === h; });
+    if (!older && o.getLastRow() > 0) o.insertRowBefore(1);
     o.getRange(1, 1, 1, HEAD.length).setValues([HEAD]);
     o.setFrozenRows(1);
   }
   o.getRange('A:E').setNumberFormat('@'); // 날짜/전화번호 자동변환 방지
+  o.getRange('K:L').setNumberFormat('@');
 }
 function readCfg_(c) {
   const raw = c.getRange('B1').getValue();
@@ -132,14 +138,18 @@ function submitOrder(o) {
     if (!(qty >= 1 && qty <= maxQty)) return { ok: false, msg: '1인당 최대 ' + maxQty + '개까지 신청 가능합니다.' };
     if (!/^010-\d{4}-\d{4}$/.test(o.phone || '')) return { ok: false, msg: '연락처 11자리를 정확히 입력해 주세요.' };
     if (!/^\d{4}-\d{2}-\d{2}$/.test(o.date || '')) return { ok: false, msg: '입금일자를 확인해 주세요.' };
-    const name = clean_(o.name, 30), addr = clean_(o.addr, 200);
+    // 받는사람 칸이 없는 예전 화면(캐시)에서 온 주문은 입금자 정보로 채움
+    if (o.rname === undefined) { o.rname = o.name; o.rphone = o.phone; }
+    const name = clean_(o.name, 30), addr = clean_(o.addr, 200), rname = clean_(o.rname, 30);
     if (!name || !addr) return { ok: false, msg: '입금자명과 주소를 입력해 주세요.' };
+    if (!rname) return { ok: false, msg: '받는 사람 이름을 입력해 주세요.' };
+    if (!/^010-\d{4}-\d{4}$/.test(o.rphone || '')) return { ok: false, msg: '받는 사람 연락처 11자리를 정확히 입력해 주세요.' };
     opt.stock = Number(opt.stock) || 0;
     if (opt.stock <= 0) return { ok: false, msg: '품절된 옵션입니다.' };
     if (qty > opt.stock) return { ok: false, msg: '해당 옵션의 잔여 수량이 ' + opt.stock + '개뿐입니다.' };
     const id = Utilities.formatDate(new Date(), TZ, 'yyMMdd-HHmmss') + '-' + (t.o.getLastRow());
     t.o.appendRow([id, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm:ss'), o.date, name,
-      o.phone, addr, opt.name, qty, Number(opt.price) * qty, '접수']);
+      o.phone, addr, opt.name, qty, Number(opt.price) * qty, '접수', rname, o.rphone]);
     opt.stock -= qty;
     t.c.getRange('B1').setValue(JSON.stringify(cfg));
     cache.put('r' + o.rid, '1', 600);

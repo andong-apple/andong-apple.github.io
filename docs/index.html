@@ -44,6 +44,11 @@ h1{font-size:24px;font-weight:800;letter-spacing:-.5px}
 .f{margin:0 0 14px}.f label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}
 input,select,textarea{width:100%;font:inherit;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
 textarea{min-height:90px;resize:vertical}input:disabled,select:disabled{background:#eee}
+.lh{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}.f .lh label{margin:0}
+.chk{display:flex!important;align-items:center;gap:6px;font-size:14px!important;color:#4a5a10;cursor:pointer}
+.chk input{width:20px;height:20px;margin:0;padding:0;accent-color:var(--olive)}
+input[readonly]{background:#f3f3ec;color:#555}
+.cpy{background:none;padding:0;text-align:left;color:inherit;font-size:13px}.cpy i{font-style:normal;margin-left:6px;padding:1px 6px;border-radius:99px;background:#eef0e0;font-size:11px;font-weight:700;color:#4a5a10}
 .ph{display:flex;gap:8px;align-items:center}.ph span{padding:12px 14px;background:#eef0e0;border-radius:10px;font-weight:700}
 .row{display:flex;gap:8px}.row>*{flex:1}
 .cta{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #eee;z-index:6}
@@ -118,9 +123,9 @@ async function load(){
 const stLabel=n=>n<=0?['out','품절']:n<=5?['low','잔여 '+n+'개']:['ok','잔여 '+n+'개'];
 
 /* ---------------- 구매자 화면 ---------------- */
-const FORM=['opt','qty','date','name','phone','addr'];
+const FORM=['opt','qty','date','name','phone','rname','rphone','addr'];
 function buyer(preview,keep){
-  const kept={};if(keep)FORM.forEach(id=>{const el=document.getElementById(id);if(el)kept[id]=el.value});
+  const kept={};if(keep){FORM.forEach(id=>{const el=document.getElementById(id);if(el)kept[id]=el.value});const sm=document.getElementById('same');kept.same=!!(sm&&sm.checked)}
   S.view=preview?'preview':'buyer';
   const c=S.cfg,anyLeft=c.options.some(o=>(Number(o.stock)||0)>0),out=!anyLeft&&!preview;
   app.innerHTML=`<header><b>사과농장</b>${preview?'':'<button class="lnk" id="adm">판매자 로그인</button>'}</header>
@@ -137,19 +142,24 @@ function buyer(preview,keep){
     <div class="f"><label>입금일자</label><input type="date" id="date" value="${today()}" ${out?'disabled':''}></div>
     <div class="f"><label>입금자명</label><input id="name" maxlength="30" placeholder="입금자명" ${out?'disabled':''}></div>
     <div class="f"><label>연락처</label><div class="ph"><span>010</span><input id="phone" inputmode="numeric" maxlength="9" placeholder="0000-0000" ${out?'disabled':''}></div></div>
+    <div class="f"><div class="lh"><label for="rname">받는 사람</label><label class="chk"><input type="checkbox" id="same" ${out?'disabled':''}>입금자와 동일</label></div><input id="rname" maxlength="30" placeholder="받는 사람 이름" ${out?'disabled':''}></div>
+    <div class="f"><label>받는 사람 연락처</label><div class="ph"><span>010</span><input id="rphone" inputmode="numeric" maxlength="9" placeholder="0000-0000" ${out?'disabled':''}></div></div>
     <div class="f"><label>배송지 주소</label><textarea id="addr" maxlength="200" placeholder="받으실 주소를 상세히 입력해 주세요" ${out?'disabled':''}></textarea></div>
   </section>
   <div class="cta"><button id="go" ${out||preview?'disabled':''}>${out?'품절되었습니다':'입금완료 후 주문신청'}</button></div>`;
   if(preview){document.getElementById('back').onclick=()=>admin();return}
   document.getElementById('adm').onclick=openLogin;
-  const ph=document.getElementById('phone');
-  ph.oninput=()=>{const d=ph.value.replace(/\D/g,'').slice(0,8);ph.value=d.length>4?d.slice(0,4)+'-'+d.slice(4):d};
+  const $=id=>document.getElementById(id),ph=$('phone'),nm=$('name'),rp=$('rphone'),rn=$('rname'),same=$('same');
+  const fmt=el=>{const d=el.value.replace(/\D/g,'').slice(0,8);el.value=d.length>4?d.slice(0,4)+'-'+d.slice(4):d};
+  // '입금자와 동일'을 체크하면 받는 사람 이름·연락처를 입금자 정보로 채우고, 입금자 정보가 바뀌면 같이 바뀜
+  const sync=()=>{if(same.checked){rn.value=nm.value;rp.value=ph.value}rn.readOnly=rp.readOnly=same.checked};
+  ph.oninput=()=>{fmt(ph);sync()};rp.oninput=()=>fmt(rp);nm.addEventListener('input',sync);same.onchange=sync;
   const optEl=document.getElementById('opt'),qtyEl=document.getElementById('qty');
   function fillQty(){const o=c.options[optEl.value],cap=Number(c.maxQty)||10,max=Math.max(1,Math.min(cap,o?(Number(o.stock)||0):0));qtyEl.innerHTML=Array.from({length:max},(_,i)=>`<option>${i+1}</option>`).join('')}
   if(optEl){optEl.onchange=fillQty;fillQty()}
   if(keep){FORM.forEach(id=>{if(kept[id]==null)return;const el=document.getElementById(id);
     if(id==='opt'&&!(el.options[kept[id]]&&!el.options[kept[id]].disabled))return;
-    el.value=kept[id];if(id==='opt')fillQty()});if(!qtyEl.value)qtyEl.selectedIndex=0}
+    el.value=kept[id];if(id==='opt')fillQty()});if(!qtyEl.value)qtyEl.selectedIndex=0;same.checked=kept.same;sync()}
   document.getElementById('go').onclick=submit;
 }
 async function submit(){
@@ -157,11 +167,14 @@ async function submit(){
   const d=v('phone').replace(/\D/g,'');
   if(d.length!==8){await A('연락처 11자리를 정확히 입력해 주세요.');return}
   if(!v('name')||!v('addr')||!v('date')){await A('입금일자, 입금자명, 배송지 주소를 모두 입력해 주세요.');return}
+  const rd=v('rphone').replace(/\D/g,'');
+  if(!v('rname')){await A('받는 사람 이름을 입력해 주세요.');return}
+  if(rd.length!==8){await A('받는 사람 연락처 11자리를 정확히 입력해 주세요.');return}
   const opt=S.cfg.options[v('opt')];
-  if(!await C(`${opt.name} ${v('qty')}개\n합계 ${won(opt.price*v('qty'))}\n\n입금을 완료하셨나요? 주문을 신청합니다.`))return;
+  if(!await C(`${opt.name} ${v('qty')}개\n합계 ${won(opt.price*v('qty'))}\n받는 분 ${v('rname')} (010-${rd.slice(0,4)}-${rd.slice(4)})\n\n입금을 완료하셨나요? 주문을 신청합니다.`))return;
   const b=document.getElementById('go');b.disabled=true;b.textContent='접수 중...';
   try{
-    const r=await run('submitOrder',{rid:S.rid,optIdx:Number(v('opt')),qty:Number(v('qty')),date:v('date'),name:v('name'),phone:'010-'+d.slice(0,4)+'-'+d.slice(4),addr:v('addr')});
+    const r=await run('submitOrder',{rid:S.rid,optIdx:Number(v('opt')),qty:Number(v('qty')),date:v('date'),name:v('name'),phone:'010-'+d.slice(0,4)+'-'+d.slice(4),addr:v('addr'),rname:v('rname'),rphone:'010-'+rd.slice(0,4)+'-'+rd.slice(4)});
     if(!r.ok){await A(r.msg);S.rid=Math.random().toString(36).slice(2)+Date.now();load();return}
     S.view='done';app.innerHTML=`<header><b>사과농장</b></header><div class="done"><h1>주문이 접수되었습니다</h1><p>주문번호 ${esc(r.id)}</p><p>합계 ${won(r.total)}</p><p>입금 확인 후 ${esc(S.cfg.ship||'순차')} 발송됩니다.<br>감사합니다.</p></div>`;
     S.rid=Math.random().toString(36).slice(2)+Date.now();
@@ -201,24 +214,34 @@ function xlsxLib(){
   return new Promise((ok,ng)=>{const s=document.createElement('script');
     s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=ok;s.onerror=ng;document.head.appendChild(s)});
 }
+/* 시트에는 받는사람 열이 맨 뒤에 있지만, 판매자 화면·엑셀에서는 연락처 바로 뒤에 보여줌 (숫자 = 시트 열 순서) */
+const ORDER=[0,1,2,3,4,10,11,5,6,7,8,9],COLW=[16,19,12,10,15,40,16,6,10,8,10,15];
+async function copyText(t){try{await navigator.clipboard.writeText(t)}catch(e){const x=document.createElement('textarea');x.value=t;document.body.appendChild(x);x.select();document.execCommand('copy');x.remove()}}
+function cell(r,i){const c=r[i]==null?'':r[i];
+  if((i===4||i===11)&&c)return `<td><a class="tel" href="sms:${esc(c.replace(/\D/g,''))}">${esc(c)}</a></td>`;
+  if(i===5&&c)return `<td><button class="cpy" data-c="${esc(c)}">${esc(c)}<i>복사</i></button></td>`;
+  if(i===9)return `<td><button class="stbtn ${c==='입금확인'?'ok':''}" data-id="${esc(r[0])}" data-s="${esc(c)}">${esc(c)}</button></td>`;
+  return `<td>${esc(c)}</td>`}
 function pOrders(){
   const D=S.data,rows=D.orders.slice().reverse(),pane=document.getElementById('pane');
   pane.innerHTML=`<div class="box"><div class="h"><span>총 ${rows.length}건</span><button class="btn" id="rf">새로고침</button></div>
   <div class="row" style="flex-wrap:wrap"><button class="btn" id="cp">표 내용 복사하기</button><button class="btn" id="xlsx">엑셀 저장</button><a class="btn" style="text-align:center;text-decoration:none;color:inherit" href="${esc(D.url)}" target="_blank">구글시트 열기</a></div>
   <p class="hint">엑셀 저장이 안 되면(앱 내 브라우저) '복사하기' 후 붙여넣거나 구글시트를 여세요.</p>${isKakao?'<button class="btn" style="width:100%;margin-top:8px" onclick="openOut()">카카오톡 밖 브라우저로 열기</button>':''}</div>
-  <div class="tw"><table><tr>${D.head.map(h=>`<th>${h}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map((c,i)=>i===4&&c?`<td><a class="tel" href="sms:${esc(c.replace(/[^\d]/g,''))}">${esc(c)}</a></td>`:i===9?`<td><button class="stbtn ${c==='입금확인'?'ok':''}" data-id="${esc(r[0])}" data-s="${esc(c)}">${esc(c)}</button></td>`:`<td>${esc(c)}</td>`).join('')}</tr>`).join('')||'<tr><td colspan="10">주문이 없습니다</td></tr>'}</table></div>
+  <div class="tw"><table><tr>${ORDER.map(i=>`<th>${esc(D.head[i]||'')}</th>`).join('')}</tr>${rows.map(r=>`<tr>${ORDER.map(i=>cell(r,i)).join('')}</tr>`).join('')||`<tr><td colspan="${ORDER.length}">주문이 없습니다</td></tr>`}</table></div>
   <div class="box" style="margin-top:14px"><div class="h">새로운 판매 시작</div><p class="hint" style="margin:0 0 10px">현재 주문을 '날짜_차수' 탭으로 보관하고, 주문표를 비웁니다. 옵션별 재고는 [상품·광고] 탭에서 직접 설정할 수도 있고, 여기서 한 번에 같은 값으로 초기화할 수도 있습니다.</p><button class="btn g" id="nr" style="width:100%">새로운 판매 시작</button></div>`;
   document.getElementById('rf').onclick=()=>admin(true);
-  const text=()=>[D.head].concat(D.orders).map(r=>r.join('\t')).join('\n');
-  document.getElementById('cp').onclick=async()=>{try{await navigator.clipboard.writeText(text())}catch(e){const t=document.createElement('textarea');t.value=text();document.body.appendChild(t);t.select();document.execCommand('copy');t.remove()}toast('복사되었습니다')};
+  const arrange=r=>ORDER.map(i=>r[i]==null?'':r[i]);
+  const text=()=>[D.head].concat(D.orders).map(r=>arrange(r).join('\t')).join('\n');
+  document.getElementById('cp').onclick=async()=>{await copyText(text());toast('복사되었습니다')};
+  pane.querySelectorAll('.cpy').forEach(b=>b.onclick=async()=>{await copyText(b.dataset.c);toast('주소가 복사되었습니다')});
   document.getElementById('xlsx').onclick=async()=>{
     try{
       await xlsxLib();
       // 수량·금액은 숫자로 저장해야 엑셀에서 합계 계산이 됨
       const num=c=>{const n=String(c).replace(/[,원\s]/g,'');return n!==''&&!isNaN(n)?Number(n):c};
-      const rows=D.orders.map(r=>r.map((c,i)=>i===7||i===8?num(c):c));
-      const ws=XLSX.utils.aoa_to_sheet([D.head].concat(rows));
-      ws['!cols']=[16,19,12,10,15,40,16,6,10,8].map(w=>({wch:w}));
+      const rows=D.orders.map(r=>ORDER.map(i=>{const c=r[i]==null?'':r[i];return i===7||i===8?num(c):c}));
+      const ws=XLSX.utils.aoa_to_sheet([arrange(D.head)].concat(rows));
+      ws['!cols']=ORDER.map(i=>({wch:COLW[i]}));
       const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'주문내역');
       XLSX.writeFile(wb,'사과주문_'+today()+'.xlsx');
     }catch(e){await A('엑셀 파일을 만들지 못했습니다. 인터넷 연결을 확인하거나 구글시트를 열어 주세요.')}};
