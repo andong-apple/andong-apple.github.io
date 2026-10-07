@@ -195,18 +195,33 @@ async function save(){
   try{await run('saveConfig',S.token,S.draft);S.cfg=S.draft;S.data=null;toast('저장되었습니다');await admin(true)}
   catch(e){await A(e.message||e)}
 }
+/* 엑셀 만들기 도구(SheetJS)는 엑셀 저장을 누를 때만 불러옴 */
+function xlsxLib(){
+  if(window.XLSX)return Promise.resolve();
+  return new Promise((ok,ng)=>{const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=ok;s.onerror=ng;document.head.appendChild(s)});
+}
 function pOrders(){
   const D=S.data,rows=D.orders.slice().reverse(),pane=document.getElementById('pane');
   pane.innerHTML=`<div class="box"><div class="h"><span>총 ${rows.length}건</span><button class="btn" id="rf">새로고침</button></div>
-  <div class="row" style="flex-wrap:wrap"><button class="btn" id="cp">표 내용 복사하기</button><button class="btn" id="csv">CSV 저장</button><a class="btn" style="text-align:center;text-decoration:none;color:inherit" href="${esc(D.url)}" target="_blank">구글시트 열기</a></div>
-  <p class="hint">CSV 저장이 안 되면(앱 내 브라우저) '복사하기' 후 붙여넣거나 구글시트를 여세요.</p>${isKakao?'<button class="btn" style="width:100%;margin-top:8px" onclick="openOut()">카카오톡 밖 브라우저로 열기</button>':''}</div>
+  <div class="row" style="flex-wrap:wrap"><button class="btn" id="cp">표 내용 복사하기</button><button class="btn" id="xlsx">엑셀 저장</button><a class="btn" style="text-align:center;text-decoration:none;color:inherit" href="${esc(D.url)}" target="_blank">구글시트 열기</a></div>
+  <p class="hint">엑셀 저장이 안 되면(앱 내 브라우저) '복사하기' 후 붙여넣거나 구글시트를 여세요.</p>${isKakao?'<button class="btn" style="width:100%;margin-top:8px" onclick="openOut()">카카오톡 밖 브라우저로 열기</button>':''}</div>
   <div class="tw"><table><tr>${D.head.map(h=>`<th>${h}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map((c,i)=>i===4&&c?`<td><a class="tel" href="sms:${esc(c.replace(/[^\d]/g,''))}">${esc(c)}</a></td>`:i===9?`<td><button class="stbtn ${c==='입금확인'?'ok':''}" data-id="${esc(r[0])}" data-s="${esc(c)}">${esc(c)}</button></td>`:`<td>${esc(c)}</td>`).join('')}</tr>`).join('')||'<tr><td colspan="10">주문이 없습니다</td></tr>'}</table></div>
   <div class="box" style="margin-top:14px"><div class="h">새로운 판매 시작</div><p class="hint" style="margin:0 0 10px">현재 주문을 '날짜_차수' 탭으로 보관하고, 주문표를 비웁니다. 옵션별 재고는 [상품·광고] 탭에서 직접 설정할 수도 있고, 여기서 한 번에 같은 값으로 초기화할 수도 있습니다.</p><button class="btn g" id="nr" style="width:100%">새로운 판매 시작</button></div>`;
   document.getElementById('rf').onclick=()=>admin(true);
   const text=()=>[D.head].concat(D.orders).map(r=>r.join('\t')).join('\n');
   document.getElementById('cp').onclick=async()=>{try{await navigator.clipboard.writeText(text())}catch(e){const t=document.createElement('textarea');t.value=text();document.body.appendChild(t);t.select();document.execCommand('copy');t.remove()}toast('복사되었습니다')};
-  document.getElementById('csv').onclick=()=>{const q=c=>'"'+String(c).replace(/"/g,'""')+'"';const csv='\uFEFF'+[D.head].concat(D.orders).map(r=>r.map(q).join(',')).join('\r\n');
-    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='사과주문_'+today()+'.csv';document.body.appendChild(a);a.click();a.remove()};
+  document.getElementById('xlsx').onclick=async()=>{
+    try{
+      await xlsxLib();
+      // 수량·금액은 숫자로 저장해야 엑셀에서 합계 계산이 됨
+      const num=c=>{const n=String(c).replace(/[,원\s]/g,'');return n!==''&&!isNaN(n)?Number(n):c};
+      const rows=D.orders.map(r=>r.map((c,i)=>i===7||i===8?num(c):c));
+      const ws=XLSX.utils.aoa_to_sheet([D.head].concat(rows));
+      ws['!cols']=[16,19,12,10,15,40,16,6,10,8].map(w=>({wch:w}));
+      const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'주문내역');
+      XLSX.writeFile(wb,'사과주문_'+today()+'.xlsx');
+    }catch(e){await A('엑셀 파일을 만들지 못했습니다. 인터넷 연결을 확인하거나 구글시트를 열어 주세요.')}};
   pane.querySelectorAll('.stbtn').forEach(b=>b.onclick=async()=>{const n=b.dataset.s==='입금확인'?'접수':'입금확인';await run('setStatus',S.token,b.dataset.id,n);admin(true)});
   document.getElementById('nr').onclick=async()=>{
     const n=await P('모든 옵션의 재고를 같은 값으로 초기화할까요? 비우고 확인을 누르면 현재 재고값을 그대로 유지합니다.','number','');
