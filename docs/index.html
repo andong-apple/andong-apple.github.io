@@ -279,11 +279,34 @@ async function save(){
   try{await run('saveConfig',S.token,S.draft);S.cfg=S.draft;S.data=null;toast('저장되었습니다');await admin(true)}
   catch(e){await A(e.message||e)}
 }
-/* 엑셀 만들기 도구(SheetJS)는 엑셀 저장을 누를 때만 불러옴 */
-function xlsxLib(){
-  if(window.XLSX)return Promise.resolve();
+/* 택배 엑셀: 롯데택배 양식(lotte-template.xlsx)을 열어 서식은 그대로 두고 값만 채움.
+   양식 서식을 보존하려고 ExcelJS 사용 (택배 엑셀을 누를 때만 불러옴) */
+const SENDER_ADDR='경북 안동시 임동면 편항길 29';
+function excelLib(){
+  if(window.ExcelJS)return Promise.resolve();
   return new Promise((ok,ng)=>{const s=document.createElement('script');
-    s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=ok;s.onerror=ng;document.head.appendChild(s)});
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';s.onload=ok;s.onerror=ng;document.head.appendChild(s)});
+}
+/* 주문표 한 줄 = 받는 곳 하나. 입금자·옵션은 주문의 맨 윗줄에만 있으므로 아랫줄은 윗줄 값을 이어받음 */
+function lotteRows(D){
+  const g=h=>D.head.indexOf(h),v=(r,h)=>{const i=g(h);return i<0||r[i]==null?'':String(r[i])};
+  let top=null;
+  return D.orders.map(r=>{
+    if(v(r,'주문시각')||!top||top[0]!==r[0])top=r;
+    const qty=Number(String(v(r,'보낼수량')||v(top,'수량')).replace(/\D/g,''))||1;
+    // A받는사람 B주소 C전화번호1 D전화번호2 E상품명1 F수량 G우편번호 H보내는사람 I주소(지정) J전화번호1(지정)
+    return [v(r,'받는사람')||v(top,'입금자명'),v(r,'배송지'),v(r,'받는사람연락처')||v(top,'연락처'),'',v(top,'옵션'),qty,v(r,'우편번호'),v(top,'입금자명'),SENDER_ADDR,v(top,'연락처')];
+  });
+}
+async function lotteExcel(D){
+  await excelLib();
+  const res=await fetch('lotte-template.xlsx');if(!res.ok)throw new Error('양식 파일을 불러오지 못했습니다.');
+  const wb=new ExcelJS.Workbook();await wb.xlsx.load(await res.arrayBuffer());
+  const ws=wb.worksheets[0];
+  lotteRows(D).forEach((vals,i)=>{const row=ws.getRow(i+2);vals.forEach((x,k)=>{row.getCell(k+1).value=x});row.commit()});
+  const buf=await wb.xlsx.writeBuffer();
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  a.download='롯데택배_'+today()+'.xlsx';document.body.appendChild(a);a.click();a.remove();
 }
 /* 판매자 표·엑셀의 열 순서와 엑셀 열 너비. 시트 열은 이름으로 찾으므로 시트 열 순서가 바뀌어도 그대로 동작 */
 const COLS=[['주문번호',16],['주문시각',19],['입금일자',12],['입금자명',10],['연락처',15],['받는사람',10],['받는사람연락처',15],['우편번호',8],['배송지',40],['보낼수량',8],['옵션',16],['수량',6],['금액',10],['상태',8]];
@@ -299,8 +322,8 @@ function pOrders(){
   D.orders.forEach(r=>{const g=groups[groups.length-1];if(g&&r[0]===g[0][0]&&iT>=0&&!r[iT])g.push(r);else groups.push([r])});
   const rows=groups.reverse().flat();
   pane.innerHTML=`<div class="box"><div class="h"><span>총 ${groups.length}건</span><button class="btn" id="rf">새로고침</button></div>
-  <div class="row" style="flex-wrap:wrap"><button class="btn" id="cp">표 내용 복사하기</button><button class="btn" id="xlsx">엑셀 저장</button><a class="btn" style="text-align:center;text-decoration:none;color:inherit" href="${esc(D.url)}" target="_blank">구글시트 열기</a></div>
-  <p class="hint">엑셀 저장이 안 되면(앱 내 브라우저) '복사하기' 후 붙여넣거나 구글시트를 여세요.</p>${isKakao?'<button class="btn" style="width:100%;margin-top:8px" onclick="openOut()">카카오톡 밖 브라우저로 열기</button>':''}</div>
+  <div class="row" style="flex-wrap:wrap"><button class="btn" id="cp">표 내용 복사하기</button><button class="btn" id="xlsx">택배 엑셀</button><a class="btn" style="text-align:center;text-decoration:none;color:inherit" href="${esc(D.url)}" target="_blank">구글시트 열기</a></div>
+  <p class="hint">택배 엑셀은 롯데택배 양식으로 받는 곳마다 한 줄씩 만듭니다. 저장이 안 되면(앱 내 브라우저) '복사하기' 후 붙여넣거나 구글시트를 여세요.</p>${isKakao?'<button class="btn" style="width:100%;margin-top:8px" onclick="openOut()">카카오톡 밖 브라우저로 열기</button>':''}</div>
   <div class="tw"><table><tr>${COLS.map(c=>`<th>${c[0]}</th>`).join('')}</tr>${rows.map(r=>{const p=pick(r),sub=iT>=0&&!r[iT];return `<tr class="${sub?'sub':''}">${p.map((c,k)=>sub&&k===0?'<td style="color:#aaa">└</td>':cell(COLS[k][0],c,p[0])).join('')}</tr>`}).join('')||`<tr><td colspan="${COLS.length}">주문이 없습니다</td></tr>`}</table></div>
   <div class="box" style="margin-top:14px"><div class="h">새로운 판매 시작</div><p class="hint" style="margin:0 0 10px">현재 주문을 '날짜_차수' 탭으로 보관하고, 주문표를 비웁니다. 옵션별 재고는 [상품·광고] 탭에서 직접 설정할 수도 있고, 여기서 한 번에 같은 값으로 초기화할 수도 있습니다.</p><button class="btn g" id="nr" style="width:100%">새로운 판매 시작</button></div>`;
   document.getElementById('rf').onclick=()=>admin(true);
@@ -309,16 +332,9 @@ function pOrders(){
   document.getElementById('cp').onclick=async()=>{await copyText(text());toast('복사되었습니다')};
   pane.querySelectorAll('.cpy').forEach(b=>b.onclick=async()=>{await copyText(b.dataset.c);toast('주소가 복사되었습니다')});
   document.getElementById('xlsx').onclick=async()=>{
-    try{
-      await xlsxLib();
-      // 수량·금액은 숫자로 저장해야 엑셀에서 합계 계산이 됨
-      const num=c=>{const n=String(c).replace(/[,원\s]/g,'');return n!==''&&!isNaN(n)?Number(n):c};
-      const rows=D.orders.map(r=>pick(r).map((c,k)=>['수량','금액','보낼수량'].includes(names[k])?num(c):c));
-      const ws=XLSX.utils.aoa_to_sheet([names].concat(rows));
-      ws['!cols']=COLS.map(c=>({wch:c[1]}));
-      const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'주문내역');
-      XLSX.writeFile(wb,'사과주문_'+today()+'.xlsx');
-    }catch(e){await A('엑셀 파일을 만들지 못했습니다. 인터넷 연결을 확인하거나 구글시트를 열어 주세요.')}};
+    if(!D.orders.length){await A('주문이 없습니다.');return}
+    try{await lotteExcel(D);toast('택배 엑셀을 저장했습니다')}
+    catch(e){await A('택배 엑셀을 만들지 못했습니다. 인터넷 연결을 확인하거나 구글시트를 열어 주세요.')}};
   pane.querySelectorAll('.stbtn').forEach(b=>b.onclick=async()=>{const n=b.dataset.s==='입금확인'?'접수':'입금확인';await run('setStatus',S.token,b.dataset.id,n);admin(true)});
   document.getElementById('nr').onclick=async()=>{
     const n=await P('모든 옵션의 재고를 같은 값으로 초기화할까요? 비우고 확인을 누르면 현재 재고값을 그대로 유지합니다.','number','');
