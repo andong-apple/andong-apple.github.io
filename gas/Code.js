@@ -1,6 +1,6 @@
 /** 하늘뫼농원 주문앱 - Code.gs (구글 시트에 연결된 스크립트)
  *  화면은 GitHub Pages(SITE)에 있고, 이 스크립트는 doPost로 데이터만 주고받습니다. */
-const VER = 'v13';
+const VER = 'v14';
 const SITE = 'https://andong-apple.github.io/';
 const ORD = '현재주문', CFG = '설정', TZ = 'Asia/Seoul';
 // 한 주문에 받는 곳이 여러 개면 받는 곳마다 한 줄. 입금자·옵션·수량·금액·상태는 맨 윗줄에만 기록
@@ -154,8 +154,14 @@ function getPublic() {
 function submitOrder(o) {
   const cache = CacheService.getScriptCache();
   if (!o || !o.rid) return { ok: false, msg: '잘못된 요청입니다.' };
-  if (cache.get('r' + o.rid)) return { ok: false, msg: '이미 접수된 주문입니다.' };
-  return withLock_(function () {
+  // 같은 주문(rid)이 다시 오면(두 번 누름, 응답 유실 후 재시도) 처음 결과를 그대로 돌려줌
+  const done = function () { const v = cache.get('r' + o.rid); return v ? JSON.parse(v) : null; };
+  if (done()) return done();
+  // 재고가 꼬이지 않도록 주문은 한 번에 하나씩 처리. 몰리면 최대 25초 기다림
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(25000)) return { ok: false, busy: true, msg: '주문이 몰려 처리가 늦어지고 있습니다. 잠시 후 다시 눌러 주세요.' };
+  try {
+    if (done()) return done();
     const t = init_(), cfg = readCfg_(t.c);
     const opt = cfg.options[o.optIdx], qty = Math.floor(Number(o.qty)), maxQty = Number(cfg.maxQty) || 10;
     if (!opt) return { ok: false, msg: '옵션을 선택해 주세요.' };
@@ -199,9 +205,12 @@ function submitOrder(o) {
     t.o.getRange(last + 1, 1, rows.length, HEAD.length).setValues(rows);
     opt.stock -= qty;
     writeCfg_(t.c, cfg);
-    cache.put('r' + o.rid, '1', 600);
-    return { ok: true, id: id, left: opt.stock, total: Number(opt.price) * qty };
-  });
+    const res = { ok: true, id: id, left: opt.stock, total: Number(opt.price) * qty };
+    cache.put('r' + o.rid, JSON.stringify(res), 1800);
+    return res;
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /* ---------- 판매자용 ---------- */

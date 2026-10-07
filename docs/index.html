@@ -95,9 +95,17 @@ const nl=s=>esc(s).replace(/\n/g,'<br>');
 /* 구글 앱스스크립트 서버 주소 (배포 주소가 바뀌지 않도록 clasp로 같은 배포를 업데이트함) */
 const API='https://script.google.com/macros/s/AKfycbxkK0MdcI7WfoLM6kD601azygIwlVaNBXRgf_iEAjL8p-KUXJfKEVXRA38O3l1WpwY/exec';
 // text/plain으로 보내야 브라우저의 사전 확인 요청(CORS) 없이 바로 전달됨
+// 접속이 몰려 구글 서버가 잠깐 응답하지 못하면 최대 2번 더 시도 (새 판매 시작은 두 번 실행되면 안 되므로 제외)
+const NO_RETRY=['newRound'];
 const run=async(fn,...args)=>{
-  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn,args})});
-  const j=await r.json();if(!j.ok)throw new Error(j.error);return j.data};
+  for(let i=0;;i++){
+    let j=null;
+    try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn,args})});
+      j=JSON.parse(await r.text())}catch(e){j=null}
+    if(j){if(!j.ok)throw new Error(j.error);return j.data}
+    if(i>=2||NO_RETRY.includes(fn))throw new Error('서버 연결이 원활하지 않습니다. 잠시 후 다시 시도해 주세요.');
+    await new Promise(r=>setTimeout(r,1000*(i+1)));
+  }};
 const isKakao=/KAKAOTALK/i.test(navigator.userAgent);
 const openOut=()=>{location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(location.href)};
 /* 구글 드라이브 공유 링크를 그대로 붙여넣어도 사진이 보이도록 변환 */
