@@ -23,7 +23,11 @@
   clasp update-deployment AKfycbxkK0MdcI7WfoLM6kD601azygIwlVaNBXRgf_iEAjL8p-KUXJfKEVXRA38O3l1WpwY --user vibe
   ```
 - 서버 함수를 새로 만들면 `API` 객체에 등록해야 화면에서 호출 가능.
-- 서버 버전 표시는 `Code.js`의 `VER`.
+- 서버 버전 표시는 `Code.js`의 `VER`. 배포 후 getPublic 응답의 `ver`로 반영 여부 확인
+  (clasp push가 시간 초과로 끊겨도 다음 명령이 실행될 수 있으니 "Pushed" 출력을 꼭 확인).
+- 서버와 화면을 같이 바꿀 때는 서버 먼저 배포하고, 서버는 예전 화면 요청도 받도록 호환 유지.
+- 주문 시트 열(HEAD)은 기존 데이터 때문에 순서를 바꾸지 말고 맨 뒤에만 추가.
+  화면 표시 순서는 `docs/index.html`의 `ORDER`로 조정.
 
 ## 주의
 - 판매자 비밀번호는 스크립트 속성(PW, 해시)에 저장. 잊으면 편집기에서 `resetPassword` 실행 → 1234.
