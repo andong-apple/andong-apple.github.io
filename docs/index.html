@@ -76,6 +76,7 @@ th,td{padding:9px 10px;border-bottom:1px solid #eee;text-align:left}th{backgroun
 .pv{position:fixed;top:60px;right:10px;z-index:9;background:#111;color:#fff;padding:10px 14px;border-radius:99px;font-weight:700;font-size:13px}
 .done{text-align:center;padding:60px 24px}.done h1{margin-bottom:12px}.done p{line-height:1.7;margin:6px 0}
 .tel{color:#1a5fb4;font-weight:700;text-decoration:underline}
+.done .shipnote{display:inline-block;margin:10px 0;padding:8px 14px;border-radius:10px;background:var(--soft);color:#4a5a10;font-weight:700;font-size:15px}
 .ver{text-align:center;color:#aaa;font-size:11px;padding:10px 0 6px}
 #toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:99px;font-size:14px;z-index:20;display:none}
 .mo{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px}
@@ -246,7 +247,7 @@ async function submit(){
     S.rid=Math.random().toString(36).slice(2)+Date.now();
     if(!r.ok){await A(r.msg);b.disabled=false;b.textContent='입금완료 후 주문신청';load(true);return}
     S.rc=null;S.same=false;
-    S.view='done';app.innerHTML=`<header><b>사과농장</b></header><div class="done"><h1>주문이 접수되었습니다</h1><p>주문번호 ${esc(r.id)}</p><p>합계 ${won(r.total)}${many?` · 받는 곳 ${recips.length}곳`:''}</p><p>입금 확인 후 ${esc(S.cfg.ship||'순차')} 발송됩니다.<br>감사합니다.</p><p style="margin-top:28px"><button class="btn g" id="again" style="padding:14px 24px;font-size:16px">주문 페이지로 돌아가기</button></p></div>`;
+    S.view='done';app.innerHTML=`<header><b>사과농장</b></header><div class="done"><h1>주문이 접수되었습니다</h1><p>주문번호 ${esc(r.id)}</p><p>합계 ${won(r.total)}${many?` · 받는 곳 ${recips.length}곳`:''}</p><p>입금이 확인되면 순서대로 보내 드립니다.</p>${S.cfg.ship?`<p class="shipnote">${esc(S.cfg.ship)}</p>`:''}<p>감사합니다.</p><p style="margin-top:28px"><button class="btn g" id="again" style="padding:14px 24px;font-size:16px">주문 페이지로 돌아가기</button></p></div>`;
     document.getElementById('again').onclick=()=>{scrollTo(0,0);load()};
   }catch(e){await A('오류: '+(e.message||e));b.disabled=false;b.textContent='입금완료 후 주문신청'}
 }
