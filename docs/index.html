@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>사과농장 주문</title>
+<meta name="description" content="정성껏 키운 햇사과, 여기서 주문하세요.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="사과농장 주문">
+<meta property="og:description" content="정성껏 키운 햇사과, 여기서 주문하세요.">
+<meta property="og:url" content="https://andong-apple.github.io/">
+<meta name="theme-color" content="#d8e86a">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍎</text></svg>">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
 <style>
 :root{--lime:#d8e86a;--lime2:#d4e65c;--soft:#eef7d3;--olive:#8a9a16;--ink:#1d2b1d;--org:#ff7f00;--bg:#f4f2ea;--line:#d9d7cc}
@@ -69,7 +77,16 @@ const app=document.getElementById('app');
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const won=n=>Number(n||0).toLocaleString('ko-KR')+'원';
 const nl=s=>esc(s).replace(/\n/g,'<br>');
-const run=(fn,...a)=>new Promise((ok,ng)=>google.script.run.withSuccessHandler(ok).withFailureHandler(e=>ng(e))[fn](...a));
+/* 구글 앱스스크립트 서버 주소 (배포 주소가 바뀌지 않도록 clasp로 같은 배포를 업데이트함) */
+const API='https://script.google.com/macros/s/AKfycbxkK0MdcI7WfoLM6kD601azygIwlVaNBXRgf_iEAjL8p-KUXJfKEVXRA38O3l1WpwY/exec';
+// text/plain으로 보내야 브라우저의 사전 확인 요청(CORS) 없이 바로 전달됨
+const run=async(fn,...args)=>{
+  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn,args})});
+  const j=await r.json();if(!j.ok)throw new Error(j.error);return j.data};
+const isKakao=/KAKAOTALK/i.test(navigator.userAgent);
+const openOut=()=>{location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(location.href)};
+/* 구글 드라이브 공유 링크를 그대로 붙여넣어도 사진이 보이도록 변환 */
+const img=u=>{const m=/drive\.google\.com\/.*(?:\/d\/|[?&]id=)([\w-]{20,})/.exec(u||'');return m?'https://lh3.googleusercontent.com/d/'+m[1]:u};
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',2200)}
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 
@@ -85,19 +102,29 @@ function modal(msg,o){o=o||{};return new Promise(res=>{
 });}
 const A=m=>modal(m),C=m=>modal(m,{confirm:1}),P=(m,t,v)=>modal(m,{input:1,type:t,val:v});
 
+/* 지난번 상품 정보로 화면을 즉시 보여주고, 서버의 최신 정보가 오면 입력값을 유지한 채 갱신 */
 async function load(){
-  app.innerHTML='<div class="done"><p>불러오는 중...</p></div>';
-  try{const r=await run('getPublic');S.cfg=r.cfg;S.ver=r.ver;buyer()}
-  catch(e){app.innerHTML='<div class="done"><p>불러오지 못했습니다. 새로고침해 주세요.</p></div>'}
+  let c=null;try{c=JSON.parse(localStorage.getItem('pub'))}catch(e){}
+  if(c&&c.cfg){S.cfg=c.cfg;S.ver=c.ver;buyer()}else{S.view='';app.innerHTML='<div class="done"><p>불러오는 중...</p></div>'}
+  try{
+    const r=await run('getPublic');S.cfg=r.cfg;S.ver=r.ver;
+    try{localStorage.setItem('pub',JSON.stringify(r))}catch(e){}
+    if(!c||(S.view==='buyer'&&!document.querySelector('.mo')))buyer(false,!!c);
+  }catch(e){
+    if(!c)app.innerHTML=`<div class="done"><p>불러오지 못했습니다.</p><p><button class="btn" onclick="location.reload()">새로고침</button></p>${isKakao?'<p><button class="btn g" onclick="openOut()">다른 브라우저로 열기</button></p>':''}</div>`;
+  }
 }
 const stLabel=n=>n<=0?['out','품절']:n<=5?['low','잔여 '+n+'개']:['ok','잔여 '+n+'개'];
 
 /* ---------------- 구매자 화면 ---------------- */
-function buyer(preview){
+const FORM=['opt','qty','date','name','phone','addr'];
+function buyer(preview,keep){
+  const kept={};if(keep)FORM.forEach(id=>{const el=document.getElementById(id);if(el)kept[id]=el.value});
+  S.view=preview?'preview':'buyer';
   const c=S.cfg,anyLeft=c.options.some(o=>(Number(o.stock)||0)>0),out=!anyLeft&&!preview;
   app.innerHTML=`<header><b>사과농장</b>${preview?'':'<button class="lnk" id="adm">판매자 로그인</button>'}</header>
   ${preview?'<button class="pv" id="back">편집으로 돌아가기</button>':''}
-  ${c.hero?`<img class="hero" src="${esc(c.hero)}" alt="" onerror="this.remove()">`:''}
+  ${c.hero?`<img class="hero" src="${esc(img(c.hero))}" alt="" onerror="this.remove()">`:''}
   <section class="card"><div class="top"><h1>${esc(c.name)}</h1><p class="intro">${nl(c.intro)}</p></div>
     <div class="opts">${c.options.map(o=>{const s=stLabel(Number(o.stock)||0);return `<div class="opt"><div><b>${esc(o.name)}</b>${o.tag?`<span class="tag">${esc(o.tag)}</span>`:''}</div><div class="d">${esc(o.desc)}</div><div class="p">${won(o.price)}</div><div class="st ${s[0]}">${s[1]}</div></div>`}).join('')}</div>
     ${c.ship?`<div class="ship">${esc(c.ship)}</div>`:''}</section>
@@ -120,6 +147,9 @@ function buyer(preview){
   const optEl=document.getElementById('opt'),qtyEl=document.getElementById('qty');
   function fillQty(){const o=c.options[optEl.value],cap=Number(c.maxQty)||10,max=Math.max(1,Math.min(cap,o?(Number(o.stock)||0):0));qtyEl.innerHTML=Array.from({length:max},(_,i)=>`<option>${i+1}</option>`).join('')}
   if(optEl){optEl.onchange=fillQty;fillQty()}
+  if(keep){FORM.forEach(id=>{if(kept[id]==null)return;const el=document.getElementById(id);
+    if(id==='opt'&&!(el.options[kept[id]]&&!el.options[kept[id]].disabled))return;
+    el.value=kept[id];if(id==='opt')fillQty()});if(!qtyEl.value)qtyEl.selectedIndex=0}
   document.getElementById('go').onclick=submit;
 }
 async function submit(){
@@ -133,7 +163,7 @@ async function submit(){
   try{
     const r=await run('submitOrder',{rid:S.rid,optIdx:Number(v('opt')),qty:Number(v('qty')),date:v('date'),name:v('name'),phone:'010-'+d.slice(0,4)+'-'+d.slice(4),addr:v('addr')});
     if(!r.ok){await A(r.msg);S.rid=Math.random().toString(36).slice(2)+Date.now();load();return}
-    app.innerHTML=`<header><b>사과농장</b></header><div class="done"><h1>주문이 접수되었습니다</h1><p>주문번호 ${esc(r.id)}</p><p>합계 ${won(r.total)}</p><p>입금 확인 후 ${esc(S.cfg.ship||'순차')} 발송됩니다.<br>감사합니다.</p></div>`;
+    S.view='done';app.innerHTML=`<header><b>사과농장</b></header><div class="done"><h1>주문이 접수되었습니다</h1><p>주문번호 ${esc(r.id)}</p><p>합계 ${won(r.total)}</p><p>입금 확인 후 ${esc(S.cfg.ship||'순차')} 발송됩니다.<br>감사합니다.</p></div>`;
     S.rid=Math.random().toString(36).slice(2)+Date.now();
   }catch(e){await A('오류: '+(e.message||e));b.disabled=false;b.textContent='입금완료 후 주문신청'}
 }
@@ -147,6 +177,7 @@ async function openLogin(){
   }catch(e){await A(e.message||e)}
 }
 async function admin(reload){
+  S.view='admin';
   try{if(reload||!S.data){S.data=await run('adminData',S.token);S.draft=JSON.parse(JSON.stringify(S.data.cfg))}}
   catch(e){await A(e.message||e);S.token=null;load();return}
   const T=[['orders','주문내역'],['edit','상품·광고'],['pay','계좌'],['set','설정']];
@@ -168,7 +199,7 @@ function pOrders(){
   const D=S.data,rows=D.orders.slice().reverse(),pane=document.getElementById('pane');
   pane.innerHTML=`<div class="box"><div class="h"><span>총 ${rows.length}건</span><button class="btn" id="rf">새로고침</button></div>
   <div class="row" style="flex-wrap:wrap"><button class="btn" id="cp">표 내용 복사하기</button><button class="btn" id="csv">CSV 저장</button><a class="btn" style="text-align:center;text-decoration:none;color:inherit" href="${esc(D.url)}" target="_blank">구글시트 열기</a></div>
-  <p class="hint">CSV 저장이 안 되면(앱 내 브라우저) '복사하기' 후 붙여넣거나 구글시트를 여세요.</p></div>
+  <p class="hint">CSV 저장이 안 되면(앱 내 브라우저) '복사하기' 후 붙여넣거나 구글시트를 여세요.</p>${isKakao?'<button class="btn" style="width:100%;margin-top:8px" onclick="openOut()">카카오톡 밖 브라우저로 열기</button>':''}</div>
   <div class="tw"><table><tr>${D.head.map(h=>`<th>${h}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map((c,i)=>i===9?`<td><button class="stbtn ${c==='입금확인'?'ok':''}" data-id="${esc(r[0])}" data-s="${esc(c)}">${esc(c)}</button></td>`:`<td>${esc(c)}</td>`).join('')}</tr>`).join('')||'<tr><td colspan="10">주문이 없습니다</td></tr>'}</table></div>
   <div class="box" style="margin-top:14px"><div class="h">새로운 판매 시작</div><p class="hint" style="margin:0 0 10px">현재 주문을 '날짜_차수' 탭으로 보관하고, 주문표를 비웁니다. 옵션별 재고는 [상품·광고] 탭에서 직접 설정할 수도 있고, 여기서 한 번에 같은 값으로 초기화할 수도 있습니다.</p><button class="btn g" id="nr" style="width:100%">새로운 판매 시작</button></div>`;
   document.getElementById('rf').onclick=()=>admin(true);
@@ -188,7 +219,7 @@ function pEdit(){
   pane.innerHTML=`<div class="box"><div class="h">기본 정보</div>
    <div class="f"><label>대표 상품명</label><input data-k="name" value="${esc(d.name)}"></div>
    <div class="f"><label>산지·상품 소개</label><textarea data-k="intro">${esc(d.intro)}</textarea></div>
-   <div class="f"><label>대표 이미지 주소 (선택)</label><input data-k="hero" value="${esc(d.hero)}" placeholder="https://..."><p class="hint">구글 드라이브 사진은 '링크 공유(누구나 보기)' 후 https://drive.google.com/uc?export=view&id=파일ID 형태로 입력하세요.</p></div>
+   <div class="f"><label>대표 이미지 주소 (선택)</label><input data-k="hero" value="${esc(d.hero)}" placeholder="https://..."><p class="hint">구글 드라이브 사진은 공유를 '링크가 있는 모든 사용자'로 바꾼 뒤, 공유 링크를 그대로 붙여넣으면 됩니다.</p></div>
    <div class="f"><label>발송 안내 문구</label><input data-k="ship" value="${esc(d.ship)}"></div>
    <div class="f"><label>문의전화 또는 이메일 (선택)</label><input data-k="contact" value="${esc(d.contact||'')}" placeholder="예: 010-1234-5678 / farm@example.com"></div>
    <div class="f"><label>1인당 최대 신청 개수</label><input type="number" inputmode="numeric" data-k="maxQty" value="${esc(d.maxQty||10)}"><p class="hint">구매자가 한 번에 신청할 수 있는 최대 수량입니다. (1~20개 사이로 설정됩니다)</p></div></div>
@@ -216,7 +247,7 @@ function pSet(){
   const pane=document.getElementById('pane');
   pane.innerHTML=`<div class="box"><div class="h">비밀번호 변경</div><div class="f"><input type="password" id="np" placeholder="새 비밀번호 (4자 이상)"></div><button class="btn g" id="cpw" style="width:100%">변경하기</button></div>
   <div class="box"><div class="h">사용 안내</div><p class="hint">주문 데이터는 연결된 구글 시트의 '현재주문' 탭에 저장됩니다. 새 판매를 시작하면 이전 주문은 '날짜_차수' 탭에 보관됩니다.</p></div>
-  <div class="box"><div class="h">로그인이 안 될 때</div><p class="hint">Apps Script 편집기에서 resetPassword 함수를 실행하면 비밀번호가 1234로 초기화됩니다. 코드를 수정한 뒤에는 배포 관리에서 '새 버전'으로 다시 배포해야 변경 사항이 적용됩니다.</p></div>`;
+  <div class="box"><div class="h">로그인이 안 될 때</div><p class="hint">Apps Script 편집기에서 resetPassword 함수를 실행하면 비밀번호가 1234로 초기화됩니다.</p></div>`;
   document.getElementById('cpw').onclick=async()=>{try{await run('changePw',S.token,document.getElementById('np').value);toast('변경되었습니다')}catch(e){await A(e.message||e)}};
 }
 function setPath(o,p,v){const k=p.split('.');let t=o;for(let i=0;i<k.length-1;i++)t=t[k[i]];t[k[k.length-1]]=v}

@@ -1,5 +1,7 @@
-/** 사과농장 주문앱 - Code.gs (구글 시트에 연결된 스크립트로 만드세요) */
-const VER = 'v8';
+/** 사과농장 주문앱 - Code.gs (구글 시트에 연결된 스크립트)
+ *  화면은 GitHub Pages(SITE)에 있고, 이 스크립트는 doPost로 데이터만 주고받습니다. */
+const VER = 'v9';
+const SITE = 'https://andong-apple.github.io/';
 const ORD = '현재주문', CFG = '설정', TZ = 'Asia/Seoul';
 const HEAD = ['주문번호','주문시각','입금일자','입금자명','연락처','배송지','옵션','수량','금액','상태'];
 const DEFAULT = {
@@ -20,12 +22,30 @@ const DEFAULT = {
   maxQty: 10
 };
 
+/** 예전 주소(/exec)로 들어온 사람은 새 주문 페이지로 안내 */
 function doGet() {
-  init_();
-  return HtmlService.createHtmlOutputFromFile('Index')
+  return HtmlService.createHtmlOutput(
+    '<div style="font-family:sans-serif;text-align:center;padding:60px 20px;font-size:18px">' +
+    '<p>주문 페이지 주소가 바뀌었습니다.</p>' +
+    '<p><a href="' + SITE + '" target="_top" style="display:inline-block;margin-top:16px;padding:14px 24px;' +
+    'background:#ff7f00;color:#fff;border-radius:12px;text-decoration:none;font-weight:700">주문 페이지로 이동</a></p></div>')
     .setTitle('사과농장')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+/* ---------- 화면(GitHub Pages)과 데이터를 주고받는 통로 ---------- */
+const API = { getPublic: getPublic, submitOrder: submitOrder, login: login, adminData: adminData,
+  saveConfig: saveConfig, setStatus: setStatus, newRound: newRound, changePw: changePw };
+function doPost(e) {
+  let out;
+  try {
+    const req = JSON.parse(e.postData.contents);
+    if (!Object.prototype.hasOwnProperty.call(API, req.fn)) throw new Error('잘못된 요청입니다.');
+    out = { ok: true, data: API[req.fn].apply(null, req.args || []) };
+  } catch (err) {
+    out = { ok: false, error: String((err && err.message) || err) };
+  }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
 }
 
 /* ---------- 비밀번호 (스크립트 속성에 저장: 시트 서식과 무관하게 항상 동일하게 동작) ---------- */
