@@ -1,4 +1,4 @@
-/** 사과농장 주문앱 - Code.gs (구글 시트에 연결된 스크립트)
+/** 하늘뫼농원 주문앱 - Code.gs (구글 시트에 연결된 스크립트)
  *  화면은 GitHub Pages(SITE)에 있고, 이 스크립트는 doPost로 데이터만 주고받습니다. */
 const VER = 'v12';
 const SITE = 'https://andong-apple.github.io/';
@@ -30,7 +30,7 @@ function doGet() {
     '<p>주문 페이지 주소가 바뀌었습니다.</p>' +
     '<p><a href="' + SITE + '" target="_top" style="display:inline-block;margin-top:16px;padding:14px 24px;' +
     'background:#ff7f00;color:#fff;border-radius:12px;text-decoration:none;font-weight:700">주문 페이지로 이동</a></p></div>')
-    .setTitle('사과농장')
+    .setTitle('하늘뫼농원')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 

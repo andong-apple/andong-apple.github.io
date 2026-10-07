@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>사과농장 주문</title>
+<title>하늘뫼농원 주문</title>
 <meta name="description" content="정성껏 키운 햇사과, 여기서 주문하세요.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="사과농장 주문">
+<meta property="og:title" content="하늘뫼농원 주문">
 <meta property="og:description" content="정성껏 키운 햇사과, 여기서 주문하세요.">
 <meta property="og:url" content="https://andong-apple.github.io/">
 <meta name="theme-color" content="#d8e86a">
@@ -145,7 +145,7 @@ function buyer(preview,keep){
   if(!S.rc)S.rc=[blankRc()];
   S.view=preview?'preview':'buyer';
   const c=S.cfg,anyLeft=c.options.some(o=>(Number(o.stock)||0)>0),out=!anyLeft&&!preview;
-  app.innerHTML=`<header><b>사과농장</b>${preview?'':'<button class="lnk" id="adm">판매자 로그인</button>'}</header>
+  app.innerHTML=`<header><b>하늘뫼농원</b>${preview?'':'<button class="lnk" id="adm">판매자 로그인</button>'}</header>
   ${preview?'<button class="pv" id="back">편집으로 돌아가기</button>':''}
   ${c.hero?`<img class="hero" src="${esc(img(c.hero))}" alt="" onerror="this.remove()">`:''}
   <section class="card"><div class="top"><h1>${esc(c.name)}</h1><p class="intro">${nl(c.intro)}</p></div>
@@ -247,7 +247,7 @@ async function submit(){
     S.rid=Math.random().toString(36).slice(2)+Date.now();
     if(!r.ok){await A(r.msg);b.disabled=false;b.textContent='입금완료 후 주문신청';load(true);return}
     S.rc=null;S.same=false;
-    S.view='done';app.innerHTML=`<header><b>사과농장</b></header><div class="done"><h1>주문이 접수되었습니다</h1><p>주문번호 ${esc(r.id)}</p><p>합계 ${won(r.total)}${many?` · 받는 곳 ${recips.length}곳`:''}</p><p>입금이 확인되면 순서대로 보내 드립니다.</p>${S.cfg.ship?`<p class="shipnote">${esc(S.cfg.ship)}</p>`:''}<p>감사합니다.</p><p style="margin-top:28px"><button class="btn g" id="again" style="padding:14px 24px;font-size:16px">주문 페이지로 돌아가기</button></p></div>`;
+    S.view='done';app.innerHTML=`<header><b>하늘뫼농원</b></header><div class="done"><h1>주문이 접수되었습니다</h1><p>주문번호 ${esc(r.id)}</p><p>합계 ${won(r.total)}${many?` · 받는 곳 ${recips.length}곳`:''}</p><p>입금이 확인되면 순서대로 보내 드립니다.</p>${S.cfg.ship?`<p class="shipnote">${esc(S.cfg.ship)}</p>`:''}<p>감사합니다.</p><p style="margin-top:28px"><button class="btn g" id="again" style="padding:14px 24px;font-size:16px">주문 페이지로 돌아가기</button></p></div>`;
     document.getElementById('again').onclick=()=>{scrollTo(0,0);load()};
   }catch(e){await A('오류: '+(e.message||e));b.disabled=false;b.textContent='입금완료 후 주문신청'}
 }
