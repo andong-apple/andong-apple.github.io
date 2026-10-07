@@ -176,7 +176,8 @@ async function submit(){
   try{
     const r=await run('submitOrder',{rid:S.rid,optIdx:Number(v('opt')),qty:Number(v('qty')),date:v('date'),name:v('name'),phone:'010-'+d.slice(0,4)+'-'+d.slice(4),addr:v('addr'),rname:v('rname'),rphone:'010-'+rd.slice(0,4)+'-'+rd.slice(4)});
     if(!r.ok){await A(r.msg);S.rid=Math.random().toString(36).slice(2)+Date.now();load();return}
-    S.view='done';app.innerHTML=`<header><b>사과농장</b></header><div class="done"><h1>주문이 접수되었습니다</h1><p>주문번호 ${esc(r.id)}</p><p>합계 ${won(r.total)}</p><p>입금 확인 후 ${esc(S.cfg.ship||'순차')} 발송됩니다.<br>감사합니다.</p></div>`;
+    S.view='done';app.innerHTML=`<header><b>사과농장</b></header><div class="done"><h1>주문이 접수되었습니다</h1><p>주문번호 ${esc(r.id)}</p><p>합계 ${won(r.total)}</p><p>입금 확인 후 ${esc(S.cfg.ship||'순차')} 발송됩니다.<br>감사합니다.</p><p style="margin-top:28px"><button class="btn g" id="again" style="padding:14px 24px;font-size:16px">주문 페이지로 돌아가기</button></p></div>`;
+    document.getElementById('again').onclick=()=>{scrollTo(0,0);load()};
     S.rid=Math.random().toString(36).slice(2)+Date.now();
   }catch(e){await A('오류: '+(e.message||e));b.disabled=false;b.textContent='입금완료 후 주문신청'}
 }
