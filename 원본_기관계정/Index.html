@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+<style>
+:root{--lime:#d8e86a;--lime2:#d4e65c;--soft:#eef7d3;--olive:#8a9a16;--ink:#1d2b1d;--org:#ff7f00;--bg:#f4f2ea;--line:#d9d7cc}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+body{font-family:Pretendard,-apple-system,sans-serif;background:#e9e8df;color:var(--ink);font-size:16px}
+#app{max-width:480px;margin:0 auto;min-height:100vh;background:var(--bg);padding-bottom:96px;position:relative}
+header{position:sticky;top:0;z-index:5;background:var(--lime);height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-size:20px}
+header b{font-weight:800;letter-spacing:-.5px}
+button{font:inherit;cursor:pointer;border:0}
+.lnk{background:none;font-size:13px;color:#3a4a10;text-decoration:underline}
+.hero{width:100%;display:block;max-height:320px;object-fit:cover}
+.card{margin:14px;background:var(--soft);border-radius:14px;overflow:hidden}
+.card.w{background:#fff;padding:16px}
+.top{padding:18px 16px 6px}
+h1{font-size:24px;font-weight:800;letter-spacing:-.5px}
+.intro{margin-top:6px;font-size:14.5px;line-height:1.55;color:#3d4a2d}
+.opts{background:var(--lime2);margin-top:14px;padding:4px 16px}
+.opt{padding:12px 0;border-bottom:1px solid rgba(60,80,0,.25);display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center}
+.opt:last-child{border:0}.opt b{font-size:17px;font-weight:600}
+.tag{display:inline-block;margin-left:8px;background:var(--olive);color:#fff;font-size:12px;font-weight:700;padding:2px 8px;border-radius:3px;vertical-align:2px}
+.opt .d{text-align:right;font-size:17px;font-weight:500}
+.opt .p{font-size:14px;color:#3d4a10;font-weight:700}
+.opt .st{font-size:12px;font-weight:700;text-align:right}
+.opt .st.ok{color:#4a5a10}.opt .st.low{color:#b35900}.opt .st.out{color:#c00}
+.ship{padding:12px 16px;font-size:14px;font-weight:700;color:#4a5a10}
+.body{background:#fbfbf6;margin:0 14px;border-radius:14px;padding:6px 18px}
+.body h2{font-size:20px;font-weight:800;margin:22px 0 12px;color:#1d3320;letter-spacing:-.4px}
+.body ul{padding-left:20px}.body li{font-size:16px;line-height:1.5;margin:8px 0}
+.body hr{border:0;border-top:1px solid #333;margin:20px 0 0}.body hr:last-child{display:none}
+.lbl{font-size:13px;color:#667;margin-bottom:6px;font-weight:600}
+.acc{font-size:18px;font-weight:700}.acc small{display:block;font-size:14px;font-weight:500;color:#555;margin-top:4px}
+.sold{color:#c00;font-weight:800;text-align:center;padding:10px;font-size:18px}
+.f{margin:0 0 14px}.f label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}
+input,select,textarea{width:100%;font:inherit;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+textarea{min-height:90px;resize:vertical}input:disabled,select:disabled{background:#eee}
+.ph{display:flex;gap:8px;align-items:center}.ph span{padding:12px 14px;background:#eef0e0;border-radius:10px;font-weight:700}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.cta{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #eee;z-index:6}
+.cta button{width:100%;height:54px;border-radius:12px;background:var(--org);color:#fff;font-size:18px;font-weight:800}
+.cta button:disabled{background:#bbb}
+.btn{padding:11px 14px;border-radius:10px;background:#fff;border:1px solid var(--line);font-weight:700;font-size:14px}
+.btn.g{background:var(--olive);color:#fff;border:0}.btn.r{color:#c33}
+.tabs{display:flex;background:#fff;border-bottom:1px solid #eee;position:sticky;top:54px;z-index:4}
+.tabs button{flex:1;padding:14px 0;background:none;font-weight:600;color:#777;border-bottom:3px solid transparent}
+.tabs .on{color:#111;border-color:#111;font-weight:800}
+.tw{overflow-x:auto;background:#fff;border-radius:10px}table{border-collapse:collapse;font-size:13px;white-space:nowrap}
+th,td{padding:9px 10px;border-bottom:1px solid #eee;text-align:left}th{background:#eef0e0;position:sticky;top:0}
+.stbtn{padding:3px 8px;border-radius:99px;background:#eee;font-size:12px;font-weight:700}.stbtn.ok{background:var(--olive);color:#fff}
+.box{background:#fff;border-radius:12px;padding:14px;margin-bottom:12px}
+.box .h{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-weight:800}
+.hint{font-size:12px;color:#888;margin-top:4px;line-height:1.4}
+.pv{position:fixed;top:60px;right:10px;z-index:9;background:#111;color:#fff;padding:10px 14px;border-radius:99px;font-weight:700;font-size:13px}
+.done{text-align:center;padding:60px 24px}.done h1{margin-bottom:12px}.done p{line-height:1.7;margin:6px 0}
+.ver{text-align:center;color:#aaa;font-size:11px;padding:10px 0 6px}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:99px;font-size:14px;z-index:20;display:none}
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px}
+.mb{background:#fff;border-radius:16px;width:100%;max-width:340px;padding:22px 20px 16px}
+.mb p{font-size:16px;line-height:1.55;margin-bottom:14px;word-break:keep-all}
+.mb .bt{display:flex;gap:8px;margin-top:14px}.mb .bt button{flex:1;height:46px;border-radius:10px;font-weight:800;font-size:15px;background:#eef0e0;color:var(--ink)}
+.mb .bt .ok{background:var(--org);color:#fff}
+</style></head>
+<body><div id="app"></div><div id="toast"></div>
+<script>
+const S={cfg:null,ver:'',token:null,tab:'orders',data:null,rid:Math.random().toString(36).slice(2)+Date.now()};
+const app=document.getElementById('app');
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const won=n=>Number(n||0).toLocaleString('ko-KR')+'원';
+const nl=s=>esc(s).replace(/\n/g,'<br>');
+const run=(fn,...a)=>new Promise((ok,ng)=>google.script.run.withSuccessHandler(ok).withFailureHandler(e=>ng(e))[fn](...a));
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',2200)}
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+
+/* 인앱 안내창 (브라우저 기본 alert/confirm/prompt 대신 사용 - 주소 표시줄 문구 없이 깔끔하게) */
+function modal(msg,o){o=o||{};return new Promise(res=>{
+  const m=document.createElement('div');m.className='mo';
+  m.innerHTML=`<div class="mb"><p>${nl(msg)}</p>${o.input?`<input id="mi" type="${o.type||'text'}" value="${esc(o.val||'')}" ${o.type==='number'?'inputmode="numeric"':''} autocomplete="off">`:''}<div class="bt">${o.input||o.confirm?'<button id="mc">취소</button>':''}<button class="ok" id="mk">확인</button></div></div>`;
+  document.body.appendChild(m);const i=m.querySelector('#mi');if(i)i.focus();
+  const done=v=>{m.remove();res(v)};
+  m.querySelector('#mk').onclick=()=>done(o.input?i.value:true);
+  const c=m.querySelector('#mc');if(c)c.onclick=()=>done(o.input?null:false);
+  if(i)i.onkeydown=e=>{if(e.key==='Enter')done(i.value)};
+});}
+const A=m=>modal(m),C=m=>modal(m,{confirm:1}),P=(m,t,v)=>modal(m,{input:1,type:t,val:v});
+
+async function load(){
+  app.innerHTML='<div class="done"><p>불러오는 중...</p></div>';
+  try{const r=await run('getPublic');S.cfg=r.cfg;S.ver=r.ver;buyer()}
+  catch(e){app.innerHTML='<div class="done"><p>불러오지 못했습니다. 새로고침해 주세요.</p></div>'}
+}
+const stLabel=n=>n<=0?['out','품절']:n<=5?['low','잔여 '+n+'개']:['ok','잔여 '+n+'개'];
+
+/* ---------------- 구매자 화면 ---------------- */
+function buyer(preview){
+  const c=S.cfg,anyLeft=c.options.some(o=>(Number(o.stock)||0)>0),out=!anyLeft&&!preview;
+  app.innerHTML=`<header><b>사과농장</b>${preview?'':'<button class="lnk" id="adm">판매자 로그인</button>'}</header>
+  ${preview?'<button class="pv" id="back">편집으로 돌아가기</button>':''}
+  ${c.hero?`<img class="hero" src="${esc(c.hero)}" alt="" onerror="this.remove()">`:''}
+  <section class="card"><div class="top"><h1>${esc(c.name)}</h1><p class="intro">${nl(c.intro)}</p></div>
+    <div class="opts">${c.options.map(o=>{const s=stLabel(Number(o.stock)||0);return `<div class="opt"><div><b>${esc(o.name)}</b>${o.tag?`<span class="tag">${esc(o.tag)}</span>`:''}</div><div class="d">${esc(o.desc)}</div><div class="p">${won(o.price)}</div><div class="st ${s[0]}">${s[1]}</div></div>`}).join('')}</div>
+    ${c.ship?`<div class="ship">${esc(c.ship)}</div>`:''}</section>
+  ${c.sections.length?`<section class="body">${c.sections.map(s=>`<h2>${esc(s.title)}</h2><ul>${s.items.map(i=>`<li>${esc(i)}</li>`).join('')}</ul><hr>`).join('')}</section>`:''}
+  <section class="card w"><div class="lbl">입금 계좌</div><div class="acc">${esc(c.bank.bank)} ${esc(c.bank.no)}<small>예금주 ${esc(c.bank.holder)}</small></div>${c.contact?`<div class="lbl" style="margin-top:12px">문의</div><div class="acc" style="font-size:15px;font-weight:500">${esc(c.contact)}</div>`:''}</section>
+  <section class="card w">${out?'<div class="sold">품절되었습니다</div>':''}
+    <div class="f"><label>옵션 선택</label><select id="opt" ${out?'disabled':''}>${c.options.map((o,i)=>{const st=Number(o.stock)||0;return `<option value="${i}" ${st<=0?'disabled':''}>${esc(o.name)} - ${won(o.price)}${st<=0?' (품절)':''}</option>`}).join('')}</select></div>
+    <div class="f"><label>수량</label><select id="qty" ${out?'disabled':''}></select></div>
+    <div class="f"><label>입금일자</label><input type="date" id="date" value="${today()}" ${out?'disabled':''}></div>
+    <div class="f"><label>입금자명</label><input id="name" maxlength="30" placeholder="입금자명" ${out?'disabled':''}></div>
+    <div class="f"><label>연락처</label><div class="ph"><span>010</span><input id="phone" inputmode="numeric" maxlength="9" placeholder="0000-0000" ${out?'disabled':''}></div></div>
+    <div class="f"><label>배송지 주소</label><textarea id="addr" maxlength="200" placeholder="받으실 주소를 상세히 입력해 주세요" ${out?'disabled':''}></textarea></div>
+  </section>
+  <div class="ver">v.${esc(S.ver)}</div>
+  <div class="cta"><button id="go" ${out||preview?'disabled':''}>${out?'품절되었습니다':'입금완료 후 주문신청'}</button></div>`;
+  if(preview){document.getElementById('back').onclick=()=>admin();return}
+  document.getElementById('adm').onclick=openLogin;
+  const ph=document.getElementById('phone');
+  ph.oninput=()=>{const d=ph.value.replace(/\D/g,'').slice(0,8);ph.value=d.length>4?d.slice(0,4)+'-'+d.slice(4):d};
+  const optEl=document.getElementById('opt'),qtyEl=document.getElementById('qty');
+  function fillQty(){const o=c.options[optEl.value],cap=Number(c.maxQty)||10,max=Math.max(1,Math.min(cap,o?(Number(o.stock)||0):0));qtyEl.innerHTML=Array.from({length:max},(_,i)=>`<option>${i+1}</option>`).join('')}
+  if(optEl){optEl.onchange=fillQty;fillQty()}
+  document.getElementById('go').onclick=submit;
+}
+async function submit(){
+  const v=id=>document.getElementById(id).value.trim();
+  const d=v('phone').replace(/\D/g,'');
+  if(d.length!==8){await A('연락처 11자리를 정확히 입력해 주세요.');return}
+  if(!v('name')||!v('addr')||!v('date')){await A('입금일자, 입금자명, 배송지 주소를 모두 입력해 주세요.');return}
+  const opt=S.cfg.options[v('opt')];
+  if(!await C(`${opt.name} ${v('qty')}개\n합계 ${won(opt.price*v('qty'))}\n\n입금을 완료하셨나요? 주문을 신청합니다.`))return;
+  const b=document.getElementById('go');b.disabled=true;b.textContent='접수 중...';
+  try{
+    const r=await run('submitOrder',{rid:S.rid,optIdx:Number(v('opt')),qty:Number(v('qty')),date:v('date'),name:v('name'),phone:'010-'+d.slice(0,4)+'-'+d.slice(4),addr:v('addr')});
+    if(!r.ok){await A(r.msg);S.rid=Math.random().toString(36).slice(2)+Date.now();load();return}
+    app.innerHTML=`<header><b>사과농장</b></header><div class="done"><h1>주문이 접수되었습니다</h1><p>주문번호 ${esc(r.id)}</p><p>합계 ${won(r.total)}</p><p>입금 확인 후 ${esc(S.cfg.ship||'순차')} 발송됩니다.<br>감사합니다.</p></div>`;
+    S.rid=Math.random().toString(36).slice(2)+Date.now();
+  }catch(e){await A('오류: '+(e.message||e));b.disabled=false;b.textContent='입금완료 후 주문신청'}
+}
+
+/* ---------------- 판매자 ---------------- */
+async function openLogin(){
+  const pw=await P('판매자 비밀번호를 입력하세요','password');if(!pw)return;
+  try{const r=await run('login',pw);if(!r.ok){await A(r.msg);return}
+    S.token=r.token;await admin(true);
+    if(r.defaultPw)await A('초기 비밀번호(1234)를 사용 중입니다. [설정] 탭에서 꼭 변경해 주세요.');
+  }catch(e){await A(e.message||e)}
+}
+async function admin(reload){
+  try{if(reload||!S.data){S.data=await run('adminData',S.token);S.draft=JSON.parse(JSON.stringify(S.data.cfg))}}
+  catch(e){await A(e.message||e);S.token=null;load();return}
+  const T=[['orders','주문내역'],['edit','상품·광고'],['pay','계좌'],['set','설정']];
+  app.innerHTML=`<header><b>판매자 모드</b><button class="lnk" id="exit">나가기</button></header>
+  <div class="tabs">${T.map(t=>`<button data-t="${t[0]}" class="${S.tab===t[0]?'on':''}">${t[1]}</button>`).join('')}</div>
+  <div style="padding:14px" id="pane"></div>
+  <div class="ver">서버 v.${esc(S.data.ver)}</div>
+  ${S.tab==='edit'||S.tab==='pay'?'<div class="cta"><button id="save">저장하기</button></div>':''}`;
+  document.getElementById('exit').onclick=()=>{S.token=null;S.data=null;load()};
+  app.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{S.tab=b.dataset.t;admin()});
+  ({orders:pOrders,edit:pEdit,pay:pPay,set:pSet})[S.tab]();
+  const sv=document.getElementById('save');if(sv)sv.onclick=save;
+}
+async function save(){
+  try{await run('saveConfig',S.token,S.draft);S.cfg=S.draft;S.data=null;toast('저장되었습니다');await admin(true)}
+  catch(e){await A(e.message||e)}
+}
+function pOrders(){
+  const D=S.data,rows=D.orders.slice().reverse(),pane=document.getElementById('pane');
+  pane.innerHTML=`<div class="box"><div class="h"><span>총 ${rows.length}건</span><button class="btn" id="rf">새로고침</button></div>
+  <div class="row" style="flex-wrap:wrap"><button class="btn" id="cp">표 내용 복사하기</button><button class="btn" id="csv">CSV 저장</button><a class="btn" style="text-align:center;text-decoration:none;color:inherit" href="${esc(D.url)}" target="_blank">구글시트 열기</a></div>
+  <p class="hint">CSV 저장이 안 되면(앱 내 브라우저) '복사하기' 후 붙여넣거나 구글시트를 여세요.</p></div>
+  <div class="tw"><table><tr>${D.head.map(h=>`<th>${h}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map((c,i)=>i===9?`<td><button class="stbtn ${c==='입금확인'?'ok':''}" data-id="${esc(r[0])}" data-s="${esc(c)}">${esc(c)}</button></td>`:`<td>${esc(c)}</td>`).join('')}</tr>`).join('')||'<tr><td colspan="10">주문이 없습니다</td></tr>'}</table></div>
+  <div class="box" style="margin-top:14px"><div class="h">새로운 판매 시작</div><p class="hint" style="margin:0 0 10px">현재 주문을 '날짜_차수' 탭으로 보관하고, 주문표를 비웁니다. 옵션별 재고는 [상품·광고] 탭에서 직접 설정할 수도 있고, 여기서 한 번에 같은 값으로 초기화할 수도 있습니다.</p><button class="btn g" id="nr" style="width:100%">새로운 판매 시작</button></div>`;
+  document.getElementById('rf').onclick=()=>admin(true);
+  const text=()=>[D.head].concat(D.orders).map(r=>r.join('\t')).join('\n');
+  document.getElementById('cp').onclick=async()=>{try{await navigator.clipboard.writeText(text())}catch(e){const t=document.createElement('textarea');t.value=text();document.body.appendChild(t);t.select();document.execCommand('copy');t.remove()}toast('복사되었습니다')};
+  document.getElementById('csv').onclick=()=>{const q=c=>'"'+String(c).replace(/"/g,'""')+'"';const csv='\uFEFF'+[D.head].concat(D.orders).map(r=>r.map(q).join(',')).join('\r\n');
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='사과주문_'+today()+'.csv';document.body.appendChild(a);a.click();a.remove()};
+  pane.querySelectorAll('.stbtn').forEach(b=>b.onclick=async()=>{const n=b.dataset.s==='입금확인'?'접수':'입금확인';await run('setStatus',S.token,b.dataset.id,n);admin(true)});
+  document.getElementById('nr').onclick=async()=>{
+    const n=await P('모든 옵션의 재고를 같은 값으로 초기화할까요? 비우고 확인을 누르면 현재 재고값을 그대로 유지합니다.','number','');
+    if(n===null)return;
+    if(!await C('현재 주문을 새 탭으로 보관하고 주문표를 비웁니다. 진행할까요?'))return;
+    try{const r=await run('newRound',S.token,n===''?null:n);toast('보관 탭: '+r.tab);S.data=null;await admin(true)}catch(e){await A(e.message||e)}};
+}
+function pEdit(){
+  const d=S.draft,pane=document.getElementById('pane');
+  pane.innerHTML=`<div class="box"><div class="h">기본 정보</div>
+   <div class="f"><label>대표 상품명</label><input data-k="name" value="${esc(d.name)}"></div>
+   <div class="f"><label>산지·상품 소개</label><textarea data-k="intro">${esc(d.intro)}</textarea></div>
+   <div class="f"><label>대표 이미지 주소 (선택)</label><input data-k="hero" value="${esc(d.hero)}" placeholder="https://..."><p class="hint">구글 드라이브 사진은 '링크 공유(누구나 보기)' 후 https://drive.google.com/uc?export=view&id=파일ID 형태로 입력하세요.</p></div>
+   <div class="f"><label>발송 안내 문구</label><input data-k="ship" value="${esc(d.ship)}"></div>
+   <div class="f"><label>문의전화 또는 이메일 (선택)</label><input data-k="contact" value="${esc(d.contact||'')}" placeholder="예: 010-1234-5678 / farm@example.com"></div>
+   <div class="f"><label>1인당 최대 신청 개수</label><input type="number" inputmode="numeric" data-k="maxQty" value="${esc(d.maxQty||10)}"><p class="hint">구매자가 한 번에 신청할 수 있는 최대 수량입니다. (1~20개 사이로 설정됩니다)</p></div></div>
+  <div class="box"><div class="h"><span>옵션 (종류별 재고 포함)</span><button class="btn g" data-a="addo">+ 추가</button></div>
+   ${d.options.map((o,i)=>`<div style="border-top:1px solid #eee;padding-top:10px;margin-top:10px"><div class="row f"><input data-k="options.${i}.name" value="${esc(o.name)}" placeholder="옵션명 (예: 감홍사과 2kg)"><input style="max-width:90px" data-k="options.${i}.tag" value="${esc(o.tag)}" placeholder="뱃지"></div>
+   <div class="row f"><input data-k="options.${i}.desc" value="${esc(o.desc)}" placeholder="구성 (예: 5 - 6입)"></div>
+   <div class="row f"><input type="number" inputmode="numeric" data-k="options.${i}.price" value="${esc(o.price)}" placeholder="가격"><input type="number" inputmode="numeric" data-k="options.${i}.stock" value="${esc(o.stock)}" placeholder="재고(이 옵션 수량)"></div>
+   <button class="btn r" data-a="delo" data-i="${i}">이 옵션 삭제</button></div>`).join('')}</div>
+  <div class="box"><div class="h"><span>소개 섹션 (소제목 + 항목)</span><button class="btn g" data-a="adds">+ 추가</button></div>
+   ${d.sections.map((s,i)=>`<div style="border-top:1px solid #eee;padding-top:10px;margin-top:10px"><div class="f"><input data-k="sections.${i}.title" value="${esc(s.title)}" placeholder="소제목 (예: 이렇게 특별해요!)"></div>
+   <div class="f"><textarea data-k="sections.${i}.items" data-lines="1" placeholder="항목을 한 줄에 하나씩">${esc(s.items.join('\n'))}</textarea></div>
+   <button class="btn r" data-a="dels" data-i="${i}">이 섹션 삭제</button></div>`).join('')}</div>
+  <button class="btn" style="width:100%;margin-bottom:80px" data-a="pv">구매자 화면 미리보기</button>`;
+  bind(pane);
+}
+function pPay(){
+  const d=S.draft,pane=document.getElementById('pane');
+  pane.innerHTML=`<div class="box"><div class="h">입금 계좌</div>
+   <div class="f"><label>은행명</label><input data-k="bank.bank" value="${esc(d.bank.bank)}"></div>
+   <div class="f"><label>계좌번호</label><input data-k="bank.no" inputmode="numeric" value="${esc(d.bank.no)}"></div>
+   <div class="f"><label>예금주</label><input data-k="bank.holder" value="${esc(d.bank.holder)}"></div></div><div style="height:70px"></div>`;
+  bind(pane);
+}
+function pSet(){
+  const pane=document.getElementById('pane');
+  pane.innerHTML=`<div class="box"><div class="h">비밀번호 변경</div><div class="f"><input type="password" id="np" placeholder="새 비밀번호 (4자 이상)"></div><button class="btn g" id="cpw" style="width:100%">변경하기</button></div>
+  <div class="box"><div class="h">사용 안내</div><p class="hint">주문 데이터는 연결된 구글 시트의 '현재주문' 탭에 저장됩니다. 새 판매를 시작하면 이전 주문은 '날짜_차수' 탭에 보관됩니다.</p></div>
+  <div class="box"><div class="h">로그인이 안 될 때</div><p class="hint">Apps Script 편집기에서 resetPassword 함수를 실행하면 비밀번호가 1234로 초기화됩니다. 코드를 수정한 뒤에는 배포 관리에서 '새 버전'으로 다시 배포해야 변경 사항이 적용됩니다.</p></div>`;
+  document.getElementById('cpw').onclick=async()=>{try{await run('changePw',S.token,document.getElementById('np').value);toast('변경되었습니다')}catch(e){await A(e.message||e)}};
+}
+function setPath(o,p,v){const k=p.split('.');let t=o;for(let i=0;i<k.length-1;i++)t=t[k[i]];t[k[k.length-1]]=v}
+function bind(pane){
+  pane.querySelectorAll('[data-k]').forEach(el=>el.oninput=()=>setPath(S.draft,el.dataset.k,el.dataset.lines?el.value.split('\n').map(s=>s.trim()).filter(Boolean):el.type==='number'?Number(el.value):el.value));
+  pane.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{
+    const a=b.dataset.a,i=Number(b.dataset.i),d=S.draft;
+    if(a==='addo')d.options.push({name:'',tag:'',desc:'',price:0,stock:0});
+    if(a==='delo'){if(d.options.length<2)return A('옵션은 1개 이상 필요합니다.');d.options.splice(i,1)}
+    if(a==='adds')d.sections.push({title:'',items:[]});
+    if(a==='dels')d.sections.splice(i,1);
+    if(a==='pv'){const c=S.cfg;S.cfg=S.draft;buyer(true);S.cfg=c;return}
+    pEdit();
+  });
+}
+load();
+</script></body></html>
