@@ -1,6 +1,6 @@
 /** 하늘뫼농원 주문앱 - Code.gs (구글 시트에 연결된 스크립트)
  *  화면은 GitHub Pages(SITE)에 있고, 이 스크립트는 doPost로 데이터만 주고받습니다. */
-const VER = 'v14';
+const VER = 'v15';
 const SITE = 'https://andong-apple.github.io/';
 const ORD = '현재주문', CFG = '설정', TZ = 'Asia/Seoul';
 // 한 주문에 받는 곳이 여러 개면 받는 곳마다 한 줄. 입금자·옵션·수량·금액·상태는 맨 윗줄에만 기록
@@ -36,7 +36,8 @@ function doGet() {
 
 /* ---------- 화면(GitHub Pages)과 데이터를 주고받는 통로 ---------- */
 const API = { getPublic: getPublic, submitOrder: submitOrder, login: login, adminData: adminData,
-  saveConfig: saveConfig, setStatus: setStatus, newRound: newRound, changePw: changePw };
+  saveConfig: saveConfig, setStatus: setStatus, newRound: newRound, changePw: changePw,
+  cancelOrder: cancelOrder, purgeOld: purgeOld };
 function doPost(e) {
   let out;
   try {
@@ -49,21 +50,49 @@ function doPost(e) {
   return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
 }
 
-/* ---------- 비밀번호 (스크립트 속성에 저장: 시트 서식과 무관하게 항상 동일하게 동작) ---------- */
-function hash_(p) {
-  const raw = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, 'apple:' + String(p == null ? '' : p).trim());
+/* ---------- 비밀번호 (스크립트 속성에 저장: 시트 서식과 무관하게 항상 동일하게 동작) ----------
+ * PWV=2: 무작위 소금(SALT) + 반복 해시로 저장된 8자 이상 비밀번호.
+ * PWV가 없으면 예전 방식(또는 초기값 1234)이므로 로그인 후 비밀번호 변경을 강제함. */
+const PROPS = function () { return PropertiesService.getScriptProperties(); };
+function hex_(raw) {
   return raw.map(function (b) { b = (b < 0 ? b + 256 : b).toString(16); return b.length === 1 ? '0' + b : b; }).join('');
 }
+function hash_(p) {
+  return hex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, 'apple:' + String(p == null ? '' : p).trim()));
+}
+function hash2_(p, salt) {
+  let h = salt + ':' + String(p == null ? '' : p).trim();
+  for (let i = 0; i < 300; i++) h = hex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, h));
+  return h;
+}
 function getPw_() {
-  const P = PropertiesService.getScriptProperties();
+  const P = PROPS();
   let v = P.getProperty('PW');
   if (!v) { v = hash_('1234'); P.setProperty('PW', v); }
   return v;
 }
-function setPw_(pw) { PropertiesService.getScriptProperties().setProperty('PW', hash_(pw)); }
+function checkPw_(pw) {
+  const P = PROPS();
+  if (P.getProperty('PWV') === '2') return hash2_(pw, P.getProperty('SALT')) === P.getProperty('PW');
+  return hash_(pw) === getPw_();
+}
+function weakPw_() { return PROPS().getProperty('PWV') !== '2'; }
+const COMMON_PW = ['12345678', '123456789', '1234567890', '87654321', 'password', 'qwer1234', 'abcd1234', 'asdf1234', '1q2w3e4r', 'qwerty12'];
+function validPw_(pw) {
+  pw = String(pw == null ? '' : pw).trim();
+  if (pw.length < 8) throw new Error('비밀번호는 8자 이상이어야 합니다.');
+  if (/^(.)\1+$/.test(pw) || COMMON_PW.indexOf(pw.toLowerCase()) >= 0) throw new Error('너무 쉬운 비밀번호입니다. 다른 비밀번호를 입력해 주세요.');
+  return pw;
+}
+function setPw_(pw) {
+  const salt = Utilities.getUuid();
+  PROPS().setProperties({ PW: hash2_(pw, salt), SALT: salt, PWV: '2' });
+}
 /** 로그인이 안 될 때: Apps Script 편집기 상단에서 이 함수를 선택해 ▶ 실행하면 비밀번호가 1234로 초기화됩니다 */
 function resetPassword() {
-  setPw_('1234');
+  const P = PROPS();
+  P.setProperty('PW', hash_('1234')); P.deleteProperty('PWV'); P.deleteProperty('SALT');
+  P.setProperty('GEN', String(Number(P.getProperty('GEN') || 0) + 1)); // 기존 로그인 모두 해제
   Logger.log('완료: 비밀번호가 1234로 초기화되었습니다. (' + VER + ')');
 }
 
@@ -129,16 +158,22 @@ function readCfg_(c) {
   writeCfg_(c, fresh);
   return fresh;
 }
+/** 주문표·택배 엑셀에 적는 옵션 이름. 같은 이름의 옵션(대과/중과 등)을 구분하려고 뱃지를 붙임 */
+function optLabel_(o) { return o.tag ? o.name + ' (' + o.tag + ')' : o.name; }
 function clean_(v, n) {
   v = String(v == null ? '' : v).trim().slice(0, n || 100);
   return /^[=+\-@]/.test(v) ? "'" + v : v; // 시트 수식 주입 방지
 }
-function auth_(t) {
-  if (!t || !CacheService.getScriptCache().get('t' + t)) throw new Error('로그인이 만료되었습니다. 다시 로그인해 주세요.');
+/** 로그인 토큰 값 = 비밀번호 세대(GEN) + 'w'(약한 비밀번호라 변경만 허용). 비밀번호를 바꾸면 GEN이 올라가 다른 기기 로그인은 끊김 */
+function gen_() { return PROPS().getProperty('GEN') || '0'; }
+function auth_(t, allowWeak) {
+  const v = t ? CacheService.getScriptCache().get('t' + t) : null;
+  if (!v || v.replace('w', '') !== gen_()) throw new Error('로그인이 만료되었습니다. 다시 로그인해 주세요.');
+  if (v.indexOf('w') >= 0 && !allowWeak) throw new Error('보안을 위해 비밀번호를 먼저 변경해 주세요.');
 }
 function withLock_(fn) {
   const l = LockService.getScriptLock();
-  l.waitLock(20000);
+  if (!l.tryLock(20000)) throw new Error('요청이 몰려 처리가 늦어지고 있습니다. 잠시 후 다시 시도해 주세요.');
   try { return fn(); } finally { l.releaseLock(); }
 }
 
@@ -197,7 +232,7 @@ function submitOrder(o) {
     const id = Utilities.formatDate(new Date(), TZ, 'yyMMdd-HHmmss') + '-' + (t.o.getLastRow());
     const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm:ss'), price = Number(opt.price) * qty;
     const rows = rs.map(function (r, k) {
-      return k === 0 ? [id, now, o.date, name, o.phone].concat(r, [opt.name, qty, price, '접수'])
+      return k === 0 ? [id, now, o.date, name, o.phone].concat(r, [optLabel_(opt), qty, price, '접수'])
                      : [id, '', '', '', ''].concat(r, ['', '', '', '']);
     });
     const last = t.o.getLastRow(), need = last + rows.length - t.o.getMaxRows();
@@ -215,18 +250,20 @@ function submitOrder(o) {
 
 /* ---------- 판매자용 ---------- */
 function login(pw) {
-  const cache = CacheService.getScriptCache();
+  const cache = CacheService.getScriptCache(), P = PROPS();
   const fails = Number(cache.get('fail') || 0);
-  if (fails >= 5) return { ok: false, msg: '시도 횟수 초과. 10분 뒤 다시 시도해 주세요. (' + VER + ')' };
-  const cur = getPw_();
-  if (cur !== hash_(pw || '')) {
+  if (fails >= 5) return { ok: false, msg: '비밀번호를 여러 번 틀려 잠겼습니다. 10분 뒤 다시 시도해 주세요.' };
+  if (!checkPw_(pw || '')) {
     cache.put('fail', String(fails + 1), 600);
-    return { ok: false, msg: '비밀번호가 올바르지 않습니다. (' + VER + ', 남은 시도 ' + (4 - fails) + '회)' };
+    P.setProperty('FAILS', String(Number(P.getProperty('FAILS') || 0) + 1)); // 판매자에게 알려줄 실패 횟수
+    return { ok: false, msg: '비밀번호가 올바르지 않습니다. (남은 시도 ' + (4 - fails) + '회)' };
   }
   cache.remove('fail');
-  const token = Utilities.getUuid();
-  cache.put('t' + token, '1', 21600);
-  return { ok: true, token: token, defaultPw: cur === hash_('1234'), data: adminData(token) };
+  const failed = Number(P.getProperty('FAILS') || 0);
+  if (failed) P.deleteProperty('FAILS');
+  const weak = weakPw_(), token = Utilities.getUuid();
+  cache.put('t' + token, gen_() + (weak ? 'w' : ''), 21600);
+  return { ok: true, token: token, mustChange: weak, failed: failed, data: weak ? null : adminData(token) };
 }
 
 function adminData(t) {
@@ -234,10 +271,10 @@ function adminData(t) {
   const x = init_();
   const last = x.o.getLastRow();
   const rows = last > 1 ? x.o.getRange(2, 1, last - 1, HEAD.length).getDisplayValues() : [];
-  return { cfg: readCfg_(x.c), head: HEAD, orders: rows, url: ss_().getUrl(), ver: VER };
+  return { cfg: readCfg_(x.c), head: HEAD, orders: rows, url: ss_().getUrl(), ver: VER, bankAt: PROPS().getProperty('BANKAT') || '' };
 }
 
-function saveConfig(t, cfg) {
+function saveConfig(t, cfg, pw) {
   auth_(t);
   const str = function (v, n) { return String(v == null ? '' : v).slice(0, n); };
   const clean = {
@@ -256,8 +293,14 @@ function saveConfig(t, cfg) {
   };
   if (!clean.options.length) throw new Error('옵션을 1개 이상 등록해 주세요.');
   return withLock_(function () {
-    writeCfg_(init_().c, clean);
-    return { ok: true, cfg: clean };
+    const c = init_().c, old = readCfg_(c).bank || {};
+    const bankChanged = ['bank', 'no', 'holder'].some(function (k) { return String(old[k] || '') !== clean.bank[k]; });
+    if (bankChanged) {
+      if (!checkPw_(pw || '')) throw new Error('계좌 정보를 바꾸려면 비밀번호를 정확히 입력해 주세요.');
+      PROPS().setProperty('BANKAT', Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'));
+    }
+    writeCfg_(c, clean);
+    return { ok: true, cfg: clean, bankAt: PROPS().getProperty('BANKAT') || '' };
   });
 }
 
@@ -266,7 +309,12 @@ function setStatus(t, id, status) {
   return withLock_(function () {
     const o = init_().o, ids = o.getRange('A:A').getValues();
     for (let i = 1; i < ids.length; i++) {
-      if (ids[i][0] === id) { o.getRange(i + 1, HEAD.indexOf('상태') + 1).setValue(status === '입금확인' ? '입금확인' : '접수'); return { ok: true }; }
+      if (ids[i][0] === id) {
+        const cell = o.getRange(i + 1, HEAD.indexOf('상태') + 1);
+        if (cell.getValue() === '취소') return { ok: false };
+        cell.setValue(status === '입금확인' ? '입금확인' : '접수');
+        return { ok: true };
+      }
     }
     return { ok: false };
   });
@@ -290,9 +338,51 @@ function newRound(t, resetTo) {
   });
 }
 
-function changePw(t, pw) {
-  auth_(t);
-  if (!pw || String(pw).trim().length < 4) throw new Error('비밀번호는 4자 이상이어야 합니다.');
-  setPw_(pw);
+function changePw(t, cur, nw) {
+  auth_(t, true);
+  if (!checkPw_(cur || '')) throw new Error('현재 비밀번호가 올바르지 않습니다.');
+  nw = validPw_(nw);
+  if (nw === String(cur).trim()) throw new Error('지금과 다른 비밀번호를 입력해 주세요.');
+  setPw_(nw);
+  const g = String(Number(gen_()) + 1);
+  PROPS().setProperty('GEN', g); // 다른 기기의 로그인은 모두 해제
+  CacheService.getScriptCache().put('t' + t, g, 21600); // 지금 기기는 그대로 유지
   return { ok: true };
+}
+
+/** 주문 취소: 상태를 '취소'로 바꾸고 그 주문 수량만큼 재고를 되돌림 */
+function cancelOrder(t, id) {
+  auth_(t);
+  return withLock_(function () {
+    const x = init_(), last = x.o.getLastRow();
+    if (last < 2) return { ok: false, msg: '주문을 찾지 못했습니다.' };
+    const rows = x.o.getRange(2, 1, last - 1, HEAD.length).getValues();
+    const col = function (h) { return HEAD.indexOf(h); };
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      if (r[0] !== id || !r[col('주문시각')]) continue;
+      if (r[col('상태')] === '취소') return { ok: false, msg: '이미 취소된 주문입니다.' };
+      x.o.getRange(i + 2, col('상태') + 1).setValue('취소');
+      const cfg = readCfg_(x.c), qty = Number(r[col('수량')]) || 0;
+      // 옵션 이름(뱃지 포함)으로 찾음. 예전 주문(이름만 저장)은 같은 이름이 하나뿐일 때만 복구
+      const label = r[col('옵션')];
+      let opt = cfg.options.filter(function (o) { return optLabel_(o) === label; })[0];
+      if (!opt) { const same = cfg.options.filter(function (o) { return o.name === label; }); if (same.length === 1) opt = same[0]; }
+      if (opt && qty > 0) { opt.stock = (Number(opt.stock) || 0) + qty; writeCfg_(x.c, cfg); }
+      return { ok: true, restored: !!opt, qty: qty, option: r[col('옵션')] };
+    }
+    return { ok: false, msg: '주문을 찾지 못했습니다. 새로고침해 주세요.' };
+  });
+}
+
+/** 개인정보 보유 기간(6개월)이 지난 '날짜_차수' 보관 탭 삭제. dryRun이면 개수만 알려줌 */
+function purgeOld(t, dryRun) {
+  auth_(t);
+  const limit = new Date(); limit.setMonth(limit.getMonth() - 6);
+  const s = ss_(), old = s.getSheets().filter(function (sh) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})_차수\d*$/.exec(sh.getName());
+    return m && new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) < limit;
+  });
+  if (!dryRun) withLock_(function () { old.forEach(function (sh) { s.deleteSheet(sh); }); });
+  return { ok: true, count: old.length, names: old.map(function (sh) { return sh.getName(); }) };
 }

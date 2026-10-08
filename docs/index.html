@@ -57,6 +57,12 @@ input[readonly]{background:#f3f3ec;color:#555}
 #rc.off{opacity:.6}
 .pc{position:fixed;inset:0;z-index:60;background:#fff;display:flex;flex-direction:column}.pch{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid #eee}.pcb{flex:1;min-height:0}
 tr.sub td{border-top:0;background:#fafaf5}
+.pv-note{margin:0 14px 14px;background:#fff;border-radius:14px;padding:14px 16px;font-size:13px;line-height:1.6;color:#555}
+.pv-note b{display:block;font-size:14px;color:var(--ink);margin-bottom:4px}.pv-note ul{padding-left:18px;margin:0 0 10px}
+.pv-note .chk{font-size:15px!important;color:var(--ink)}
+.cxbtn{margin-left:4px;padding:3px 8px;border-radius:99px;background:#fff;border:1px solid #e3b3b3;color:#c33;font-size:12px;font-weight:700}
+.stx{padding:3px 8px;border-radius:99px;background:#eee;color:#999;font-size:12px;font-weight:700}
+tr.cx td{color:#aaa;text-decoration:line-through}tr.cx td:last-child{text-decoration:none}
 .ph{display:flex;gap:8px;align-items:center}.ph span{padding:12px 14px;background:#eef0e0;border-radius:10px;font-weight:700}
 .row{display:flex;gap:8px}.row>*{flex:1}
 .cta{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #eee;z-index:6}
@@ -138,6 +144,7 @@ async function load(keep){
     if(!c)app.innerHTML=`<div class="done"><p>불러오지 못했습니다.</p><p><button class="btn" onclick="location.reload()">새로고침</button></p>${isKakao?'<p><button class="btn g" onclick="openOut()">다른 브라우저로 열기</button></p>':''}</div>`;
   }
 }
+const optLabel=o=>o.tag?o.name+' ('+o.tag+')':o.name;
 const stLabel=n=>n<=0?['out','품절']:n<=5?['low','잔여 '+n+'개']:['ok','잔여 '+n+'개'];
 
 /* ---------------- 구매자 화면 ---------------- */
@@ -162,13 +169,20 @@ function buyer(preview,keep){
   ${c.sections.length?`<section class="body">${c.sections.map(s=>`<h2>${esc(s.title)}</h2><ul>${s.items.map(i=>`<li>${esc(i)}</li>`).join('')}</ul><hr>`).join('')}</section>`:''}
   <section class="card w"><div class="lbl">입금 계좌</div><div class="acc">${esc(c.bank.bank)} ${esc(c.bank.no)}<small>예금주 ${esc(c.bank.holder)}</small></div>${c.contact?`<div class="lbl" style="margin-top:12px">문의</div><div class="acc" style="font-size:15px;font-weight:500">${esc(c.contact)}</div>`:''}</section>
   <section class="card w">${out?'<div class="sold">품절되었습니다</div>':''}
-    <div class="f"><label>옵션 선택</label><select id="opt" ${out?'disabled':''}>${c.options.map((o,i)=>{const st=Number(o.stock)||0;return `<option value="${i}" ${st<=0?'disabled':''}>${esc(o.name)} - ${won(o.price)}${st<=0?' (품절)':''}</option>`}).join('')}</select></div>
+    <div class="f"><label>옵션 선택</label><select id="opt" ${out?'disabled':''}>${c.options.map((o,i)=>{const st=Number(o.stock)||0;return `<option value="${i}" ${st<=0?'disabled':''}>${esc(optLabel(o))} - ${won(o.price)}${st<=0?' (품절)':''}</option>`}).join('')}</select></div>
     <div class="f"><label>총 수량</label><select id="qty" ${out?'disabled':''}></select></div>
     <div class="f"><label>입금일자</label><input type="date" id="date" value="${today()}" ${out?'disabled':''}></div>
     <div class="f"><label>입금자명</label><input id="name" maxlength="30" placeholder="입금자명" ${out?'disabled':''}></div>
     <div class="f" style="margin:0"><label>연락처</label><div class="ph"><span>010</span><input id="phone" inputmode="numeric" maxlength="9" placeholder="0000-0000" ${out?'disabled':''}></div></div>
   </section>
   <div id="rc" class="${out?'off':''}"></div>
+  <section class="pv-note"><b>개인정보 수집·이용 안내</b><ul>
+    <li>수집 항목: 입금자명·연락처, 받는 분 이름·연락처·주소</li>
+    <li>이용 목적: 주문·입금 확인, 상품 배송과 배송 관련 연락</li>
+    <li>배송 위탁: 배송을 위해 받는 분 정보가 택배사(롯데택배)에 전달됩니다</li>
+    <li>보유 기간: 배송 완료 후 6개월이 지나면 지체 없이 파기합니다</li>
+    <li>동의하지 않으실 수 있으나, 이 경우 주문이 어렵습니다</li></ul>
+    <label class="chk"><input type="checkbox" id="agree" ${S.agree?'checked':''} ${out||preview?'disabled':''}>위 내용에 동의합니다 (필수)</label></section>
   <div class="cta"><button id="go" ${out||preview?'disabled':''}>${out?'품절되었습니다':'입금완료 후 주문신청'}</button></div>`;
   if(preview){document.getElementById('back').onclick=()=>admin();renderRc(true);return}
   document.getElementById('adm').onclick=openLogin;
@@ -181,6 +195,7 @@ function buyer(preview,keep){
     if(id==='opt'&&!(el.options[kept[id]]&&!el.options[kept[id]].disabled))return;
     el.value=kept[id];if(id==='opt')fillQty()});if(!qtyEl.value)qtyEl.selectedIndex=0}
   renderRc(out);
+  $('agree').onchange=e=>{S.agree=e.target.checked};
   $('go').onclick=submit;
 }
 /* '입금자와 동일'이 체크돼 있으면 첫 번째 받는 곳의 이름·연락처를 입금자 정보로 맞춤 */
@@ -245,16 +260,17 @@ async function submit(){
     if(r.rphone.replace(/\D/g,'').length!==8){await A(no+'받는 사람 연락처 11자리를 정확히 입력해 주세요.');return}
     if(!r.addr.trim()){await A(no+'배송지 주소를 입력해 주세요.');return}}
   if(rest<1){await A('받는 곳별 보낼 수량의 합이 총 수량보다 많습니다. 수량을 확인해 주세요.');return}
+  if(!S.agree){await A('개인정보 수집·이용 안내를 확인하고 동의에 체크해 주세요.');return}
   const opt=S.cfg.options[v('opt')],qty=Number(v('qty'));
   const recips=S.rc.map((r,k)=>({rname:r.rname.trim(),rphone:fullPh(r.rphone),zip:r.zip,addr:r.addr.trim(),detail:r.detail.trim(),qty:k===0?rest:r.qty}));
   const list=recips.map((r,k)=>`${many?(k+1)+'. ':''}${r.rname} ${many?r.qty+'개':''}\n   ${r.addr} ${r.detail}`).join('\n');
-  if(!await C(`${opt.name} 총 ${qty}개\n합계 ${won(opt.price*qty)}\n\n받는 곳\n${list}\n\n입금을 완료하셨나요? 주문을 신청합니다.`))return;
+  if(!await C(`${optLabel(opt)} 총 ${qty}개\n합계 ${won(opt.price*qty)}\n\n받는 곳\n${list}\n\n입금을 완료하셨나요? 주문을 신청합니다.`))return;
   const b=document.getElementById('go');b.disabled=true;b.textContent='접수 중...';
   try{
     const r=await run('submitOrder',{rid:S.rid,optIdx:Number(v('opt')),qty,date:v('date'),name:v('name'),phone:fullPh(d),recips});
     S.rid=Math.random().toString(36).slice(2)+Date.now();
     if(!r.ok){await A(r.msg);b.disabled=false;b.textContent='입금완료 후 주문신청';load(true);return}
-    S.rc=null;S.same=false;
+    S.rc=null;S.same=false;S.agree=false;
     S.view='done';app.innerHTML=`<header><b>하늘뫼농원</b></header><div class="done"><h1>주문이 접수되었습니다</h1><p>주문번호 ${esc(r.id)}</p><p>합계 ${won(r.total)}${many?` · 받는 곳 ${recips.length}곳`:''}</p><p>입금이 확인되면 순서대로 보내 드립니다.</p>${S.cfg.ship?`<p class="shipnote">${esc(S.cfg.ship)}</p>`:''}<p>감사합니다.</p><p style="margin-top:28px"><button class="btn g" id="again" style="padding:14px 24px;font-size:16px">주문 페이지로 돌아가기</button></p></div>`;
     document.getElementById('again').onclick=()=>{scrollTo(0,0);load()};
   }catch(e){await A('오류: '+(e.message||e));b.disabled=false;b.textContent='입금완료 후 주문신청'}
@@ -265,9 +281,21 @@ async function openLogin(){
   const pw=await P('판매자 비밀번호를 입력하세요','password');if(!pw)return;
   try{const r=await run('login',pw);if(!r.ok){await A(r.msg);return}
     S.token=r.token;
+    if(r.failed)await A(`지난 로그인 이후 비밀번호가 ${r.failed}번 틀렸습니다.\n본인이 틀린 것이 아니라면 [설정]에서 비밀번호를 바꿔 주세요.`);
+    if(r.mustChange){if(!await forceChange(pw)){S.token=null;return}S.data=null;await admin(true);return}
     if(r.data){S.data=r.data;S.draft=JSON.parse(JSON.stringify(r.data.cfg));await admin()}else await admin(true);
-    if(r.defaultPw)await A('초기 비밀번호(1234)를 사용 중입니다. [설정] 탭에서 꼭 변경해 주세요.');
   }catch(e){await A(e.message||e)}
+}
+/* 초기 비밀번호(1234)나 예전 짧은 비밀번호면 8자 이상 새 비밀번호로 바꿔야 판매자 화면을 쓸 수 있음 */
+async function forceChange(cur){
+  await A('보안을 위해 비밀번호를 8자 이상으로 바꿔야 판매자 화면을 쓸 수 있습니다.\n(계좌번호 변경 등 사고를 막기 위한 조치입니다)');
+  for(;;){
+    const a=await P('새 비밀번호 (8자 이상)','password');if(a===null)return false;
+    const b=await P('새 비밀번호를 한 번 더 입력해 주세요','password');if(b===null)return false;
+    if(a!==b){await A('두 비밀번호가 다릅니다. 다시 입력해 주세요.');continue}
+    try{await run('changePw',S.token,cur,a);await A('비밀번호가 변경되었습니다. 새 비밀번호를 꼭 기억해 주세요.');return true}
+    catch(e){await A(e.message||e)}
+  }
 }
 async function admin(reload){
   S.view='admin';
@@ -285,8 +313,11 @@ async function admin(reload){
   const sv=document.getElementById('save');if(sv)sv.onclick=save;
 }
 async function save(){
+  const o=S.data.cfg.bank||{},n=S.draft.bank||{};let pw;
+  if(['bank','no','holder'].some(k=>String(o[k]||'')!==String(n[k]||''))){
+    pw=await P('계좌 정보가 바뀝니다. 확인을 위해 판매자 비밀번호를 입력해 주세요.','password');if(!pw)return}
   const sv=document.getElementById('save');if(sv){sv.disabled=true;sv.textContent='저장 중...'}
-  try{const r=await run('saveConfig',S.token,S.draft);const c=r.cfg||S.draft;
+  try{const r=await run('saveConfig',S.token,S.draft,pw);const c=r.cfg||S.draft;if(r.bankAt!==undefined)S.data.bankAt=r.bankAt;
     S.cfg=JSON.parse(JSON.stringify(c));S.data.cfg=JSON.parse(JSON.stringify(c));S.draft=JSON.parse(JSON.stringify(c));
     try{localStorage.setItem('pub',JSON.stringify({cfg:c,ver:S.ver}))}catch(e){}
     toast('저장되었습니다');admin()}
@@ -298,13 +329,17 @@ const SENDER_ADDR='경북 안동시 임동면 편항길 29';
 function excelLib(){
   if(window.ExcelJS)return Promise.resolve();
   return new Promise((ok,ng)=>{const s=document.createElement('script');
-    s.src='https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';s.onload=ok;s.onerror=ng;document.head.appendChild(s)});
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+    s.integrity='sha512-dlPw+ytv/6JyepmelABrgeYgHI0O+frEwgfnPdXDTOIZz+eDgfW07QXG02/O8COfivBdGNINy+Vex+lYmJ5rxw==';s.crossOrigin='anonymous';s.onload=ok;s.onerror=ng;document.head.appendChild(s)});
 }
 /* 주문표 한 줄 = 받는 곳 하나. 입금자·옵션은 주문의 맨 윗줄에만 있으므로 아랫줄은 윗줄 값을 이어받음 */
 function lotteRows(D){
   const g=h=>D.head.indexOf(h),v=(r,h)=>{const i=g(h);return i<0||r[i]==null?'':String(r[i])};
   let top=null;
-  return D.orders.map(r=>{
+  return D.orders.filter(r=>{
+    if(v(r,'주문시각')||!top||top[0]!==r[0])top=r;
+    return v(top,'상태')!=='취소';
+  }).map(r=>{
     if(v(r,'주문시각')||!top||top[0]!==r[0])top=r;
     const qty=Number(String(v(r,'보낼수량')||v(top,'수량')).replace(/\D/g,''))||1;
     // A받는사람 B주소 C전화번호1 D전화번호2 E상품명1 F수량 G우편번호 H보내는사람 I주소(지정) J전화번호1(지정)
@@ -327,17 +362,20 @@ async function copyText(t){try{await navigator.clipboard.writeText(t)}catch(e){c
 function cell(h,c,id){
   if((h==='연락처'||h==='받는사람연락처')&&c)return `<td><a class="tel" href="sms:${esc(c.replace(/\D/g,''))}">${esc(c)}</a></td>`;
   if(h==='배송지'&&c)return `<td><button class="cpy" data-c="${esc(c)}">${esc(c)}<i>복사</i></button></td>`;
-  if(h==='상태'&&c)return `<td><button class="stbtn ${c==='입금확인'?'ok':''}" data-id="${esc(id)}" data-s="${esc(c)}">${esc(c)}</button></td>`;
+  if(h==='상태'&&c==='취소')return '<td><span class="stx">취소됨</span></td>';
+  if(h==='상태'&&c)return `<td style="white-space:nowrap"><button class="stbtn ${c==='입금확인'?'ok':''}" data-id="${esc(id)}" data-s="${esc(c)}">${esc(c)}</button><button class="cxbtn" data-cx="${esc(id)}">취소</button></td>`;
   return `<td>${esc(c)}</td>`}
 function pOrders(){
   const idx=COLS.map(c=>S.data.head.indexOf(c[0])),pick=r=>idx.map(i=>i<0||r[i]==null?'':r[i]);
   const D=S.data,pane=document.getElementById('pane'),iT=D.head.indexOf('주문시각'),groups=[];
   D.orders.forEach(r=>{const g=groups[groups.length-1];if(g&&r[0]===g[0][0]&&iT>=0&&!r[iT])g.push(r);else groups.push([r])});
+  const iS0=D.head.indexOf('상태'),isCx=g=>g[0][iS0]==='취소',ncx=groups.filter(isCx).length;
+  const cxIds=new Set(groups.filter(isCx).map(g=>g[0][0]));
   const rows=groups.reverse().flat();
-  pane.innerHTML=`<div class="box"><div class="h"><span>총 ${groups.length}건</span><button class="btn" id="rf">새로고침</button></div>
+  pane.innerHTML=`<div class="box"><div class="h"><span>총 ${groups.length-ncx}건${ncx?` <small style="color:#999;font-weight:500">(취소 ${ncx}건 별도)</small>`:''}</span><button class="btn" id="rf">새로고침</button></div>
   <div class="row" style="flex-wrap:wrap"><button class="btn" id="cp">표 내용 복사하기</button><button class="btn" id="xlsx">택배 엑셀</button><a class="btn" style="text-align:center;text-decoration:none;color:inherit" href="${esc(D.url)}" target="_blank">구글시트 열기</a></div>
   <p class="hint">택배 엑셀은 롯데택배 양식으로 받는 곳마다 한 줄씩 만듭니다. 저장이 안 되면(앱 내 브라우저) '복사하기' 후 붙여넣거나 구글시트를 여세요.</p>${isKakao?'<button class="btn" style="width:100%;margin-top:8px" onclick="openOut()">카카오톡 밖 브라우저로 열기</button>':''}</div>
-  <div class="tw"><table><tr>${COLS.map(c=>`<th>${c[0]}</th>`).join('')}</tr>${rows.map(r=>{const p=pick(r),sub=iT>=0&&!r[iT];return `<tr class="${sub?'sub':''}">${p.map((c,k)=>sub&&k===0?'<td style="color:#aaa">└</td>':cell(COLS[k][0],c,p[0])).join('')}</tr>`}).join('')||`<tr><td colspan="${COLS.length}">주문이 없습니다</td></tr>`}</table></div>
+  <div class="tw"><table><tr>${COLS.map(c=>`<th>${c[0]}</th>`).join('')}</tr>${rows.map(r=>{const p=pick(r),sub=iT>=0&&!r[iT];return `<tr class="${sub?'sub':''} ${cxIds.has(r[0])?'cx':''}">${p.map((c,k)=>sub&&k===0?'<td style="color:#aaa">└</td>':cell(COLS[k][0],c,p[0])).join('')}</tr>`}).join('')||`<tr><td colspan="${COLS.length}">주문이 없습니다</td></tr>`}</table></div>
   <div class="box" style="margin-top:14px"><div class="h">새로운 판매 시작</div><p class="hint" style="margin:0 0 10px">현재 주문을 '날짜_차수' 탭으로 보관하고, 주문표를 비웁니다. 옵션별 재고는 [상품·광고] 탭에서 직접 설정할 수도 있고, 여기서 한 번에 같은 값으로 초기화할 수도 있습니다.</p><button class="btn g" id="nr" style="width:100%">새로운 판매 시작</button></div>`;
   document.getElementById('rf').onclick=()=>admin(true);
   const names=COLS.map(c=>c[0]);
@@ -345,12 +383,19 @@ function pOrders(){
   document.getElementById('cp').onclick=async()=>{await copyText(text());toast('복사되었습니다')};
   pane.querySelectorAll('.cpy').forEach(b=>b.onclick=async()=>{await copyText(b.dataset.c);toast('주소가 복사되었습니다')});
   document.getElementById('xlsx').onclick=async()=>{
-    if(!D.orders.length){await A('주문이 없습니다.');return}
+    if(!lotteRows(D).length){await A('보낼 주문이 없습니다. (취소된 주문은 제외됩니다)');return}
     try{await lotteExcel(D);toast('택배 엑셀을 저장했습니다')}
     catch(e){await A('택배 엑셀을 만들지 못했습니다. 인터넷 연결을 확인하거나 구글시트를 열어 주세요.')}};
   const iS=D.head.indexOf('상태');
   const setBtn=(b,s)=>{b.dataset.s=s;b.textContent=s;b.classList.toggle('ok',s==='입금확인');
     const row=D.orders.find(r=>r[0]===b.dataset.id&&r[iS]);if(row)row[iS]=s};
+  pane.querySelectorAll('[data-cx]').forEach(b=>b.onclick=async()=>{
+    const id=b.dataset.cx,top=D.orders.find(r=>r[0]===id&&r[iS]);
+    if(!await C(`주문 ${id}\n${top?top[D.head.indexOf('입금자명')]+' · '+top[D.head.indexOf('옵션')]+' '+top[D.head.indexOf('수량')]+'개':''}\n\n이 주문을 취소할까요? 재고가 다시 늘어나고, 되돌릴 수 없습니다.\n(이미 입금받았다면 환불은 직접 해 주세요)`))return;
+    b.disabled=true;
+    try{const r=await run('cancelOrder',S.token,id);if(!r.ok){await A(r.msg);b.disabled=false;return}
+      toast(r.restored?`취소했습니다 · ${r.option} 재고 +${r.qty}`:'취소했습니다 (옵션 이름이 바뀌어 재고는 직접 확인해 주세요)');await admin(true)}
+    catch(e){b.disabled=false;await A(e.message||e)}});
   pane.querySelectorAll('.stbtn').forEach(b=>b.onclick=async()=>{
     const was=b.dataset.s,n=was==='입금확인'?'접수':'입금확인';setBtn(b,n);
     try{const r=await run('setStatus',S.token,b.dataset.id,n);if(!r.ok)throw new Error('주문을 찾지 못했습니다. 새로고침해 주세요.')}
@@ -387,15 +432,29 @@ function pPay(){
   pane.innerHTML=`<div class="box"><div class="h">입금 계좌</div>
    <div class="f"><label>은행명</label><input data-k="bank.bank" value="${esc(d.bank.bank)}"></div>
    <div class="f"><label>계좌번호</label><input data-k="bank.no" inputmode="numeric" value="${esc(d.bank.no)}"></div>
-   <div class="f"><label>예금주</label><input data-k="bank.holder" value="${esc(d.bank.holder)}"></div></div><div style="height:70px"></div>`;
+   <div class="f"><label>예금주</label><input data-k="bank.holder" value="${esc(d.bank.holder)}"></div>
+   <p class="hint">계좌를 바꿀 때는 비밀번호를 한 번 더 확인합니다.${S.data.bankAt?` 마지막 변경: ${esc(S.data.bankAt)} (본인이 바꾼 게 아니라면 즉시 비밀번호를 바꾸세요)`:''}</p></div><div style="height:70px"></div>`;
   bind(pane);
 }
 function pSet(){
   const pane=document.getElementById('pane');
-  pane.innerHTML=`<div class="box"><div class="h">비밀번호 변경</div><div class="f"><input type="password" id="np" placeholder="새 비밀번호 (4자 이상)"></div><button class="btn g" id="cpw" style="width:100%">변경하기</button></div>
+  pane.innerHTML=`<div class="box"><div class="h">비밀번호 변경</div>
+    <div class="f"><input type="password" id="op" placeholder="현재 비밀번호" autocomplete="current-password"></div>
+    <div class="f"><input type="password" id="np" placeholder="새 비밀번호 (8자 이상)" autocomplete="new-password"></div>
+    <div class="f"><input type="password" id="np2" placeholder="새 비밀번호 확인" autocomplete="new-password"></div>
+    <button class="btn g" id="cpw" style="width:100%">변경하기</button><p class="hint">비밀번호를 바꾸면 다른 기기에서 로그인된 판매자 화면은 모두 로그아웃됩니다.</p></div>
+  <div class="box"><div class="h">개인정보 정리</div><p class="hint" style="margin:0 0 10px">구매자 안내대로 배송 후 6개월이 지난 주문은 지워야 합니다. '날짜_차수' 보관 탭 중 6개월이 지난 것을 삭제합니다.</p><button class="btn r" id="purge" style="width:100%">6개월 지난 보관 주문 삭제</button></div>
   <div class="box"><div class="h">사용 안내</div><p class="hint">주문 데이터는 연결된 구글 시트의 '현재주문' 탭에 저장됩니다. 새 판매를 시작하면 이전 주문은 '날짜_차수' 탭에 보관됩니다.</p></div>
-  <div class="box"><div class="h">로그인이 안 될 때</div><p class="hint">Apps Script 편집기에서 resetPassword 함수를 실행하면 비밀번호가 1234로 초기화됩니다.</p></div>`;
-  document.getElementById('cpw').onclick=async()=>{try{await run('changePw',S.token,document.getElementById('np').value);toast('변경되었습니다')}catch(e){await A(e.message||e)}};
+  <div class="box"><div class="h">로그인이 안 될 때</div><p class="hint">구글 계정 주인이 Apps Script 편집기에서 resetPassword 함수를 실행하면 비밀번호가 1234로 초기화되고, 다음 로그인 때 새 비밀번호를 정하게 됩니다.</p></div>`;
+  const $=id=>document.getElementById(id);
+  $('cpw').onclick=async()=>{
+    if($('np').value!==$('np2').value){await A('새 비밀번호 두 칸이 다릅니다.');return}
+    try{await run('changePw',S.token,$('op').value,$('np').value);['op','np','np2'].forEach(i=>$(i).value='');toast('변경되었습니다')}catch(e){await A(e.message||e)}};
+  $('purge').onclick=async()=>{
+    try{const d=await run('purgeOld',S.token,true);
+      if(!d.count){await A('6개월이 지난 보관 탭이 없습니다.');return}
+      if(!await C(`6개월이 지난 보관 탭 ${d.count}개를 삭제합니다.\n${d.names.join(', ')}\n\n삭제하면 되돌릴 수 없습니다. 진행할까요?`))return;
+      await run('purgeOld',S.token,false);toast('삭제했습니다')}catch(e){await A(e.message||e)}};
 }
 function setPath(o,p,v){const k=p.split('.');let t=o;for(let i=0;i<k.length-1;i++)t=t[k[i]];t[k[k.length-1]]=v}
 function bind(pane){
