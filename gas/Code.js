@@ -1,6 +1,6 @@
 /** 하늘뫼농원 주문앱 - Code.gs (구글 시트에 연결된 스크립트)
  *  화면은 GitHub Pages(SITE)에 있고, 이 스크립트는 doPost로 데이터만 주고받습니다. */
-const VER = 'v15';
+const VER = 'v16';
 const SITE = 'https://andong-apple.github.io/';
 const ORD = '현재주문', CFG = '설정', TZ = 'Asia/Seoul';
 // 한 주문에 받는 곳이 여러 개면 받는 곳마다 한 줄. 입금자·옵션·수량·금액·상태는 맨 윗줄에만 기록
@@ -261,7 +261,12 @@ function login(pw) {
   cache.remove('fail');
   const failed = Number(P.getProperty('FAILS') || 0);
   if (failed) P.deleteProperty('FAILS');
-  const weak = weakPw_(), token = Utilities.getUuid();
+  let weak = weakPw_();
+  if (weak) {
+    // 예전 방식으로 저장된 비밀번호라도 8자 이상·쉽지 않은 비밀번호면 그대로 새 방식으로 바꿔 저장 (변경 강제 안 함)
+    try { setPw_(validPw_(pw)); weak = false; } catch (e) { /* 1234·8자 미만이면 변경 강제 */ }
+  }
+  const token = Utilities.getUuid();
   cache.put('t' + token, gen_() + (weak ? 'w' : ''), 21600);
   return { ok: true, token: token, mustChange: weak, failed: failed, data: weak ? null : adminData(token) };
 }
