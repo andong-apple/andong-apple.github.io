@@ -77,7 +77,10 @@ tr.cx td{color:#aaa;text-decoration:line-through}tr.cx td:last-child{text-decora
 .cta button:disabled{background:#bbb}
 .btn{padding:11px 14px;border-radius:10px;background:#fff;border:1px solid var(--line);font-weight:700;font-size:14px}
 .btn.g{background:var(--olive);color:#fff;border:0}.btn.r{color:#c33}
-.tabs{display:flex;background:#fff;border-bottom:1px solid #eee;position:sticky;top:54px;z-index:4}
+.tabs{display:flex;background:#fff;border-bottom:1px solid #eee;position:sticky;top:0;z-index:4}
+header.ah{position:relative}
+/* 판매자 화면에서 키보드가 올라와 있는 동안 '저장하기' 버튼을 숨김 (구매 화면 버튼에는 적용 안 됨) */
+body.kb .cta.acta{display:none}
 .tabs button{flex:1;padding:14px 0;background:none;font-weight:600;color:#777;border-bottom:3px solid transparent}
 .tabs .on{color:#111;border-color:#111;font-weight:800}
 .tw{overflow-x:auto;background:#fff;border-radius:10px}table{border-collapse:collapse;font-size:13px;white-space:nowrap}
@@ -319,11 +322,11 @@ async function admin(reload){
   try{if(reload||!S.data){S.data=await run('adminData',S.token);S.draft=JSON.parse(JSON.stringify(S.data.cfg))}}
   catch(e){await A(e.message||e);S.token=null;load();return}
   const T=[['orders','주문내역'],['edit','상품·광고'],['pay','계좌'],['set','설정']];
-  app.innerHTML=`<header><b>판매자 모드</b><button class="lnk" id="exit">나가기</button></header>
+  app.innerHTML=`<header class="ah"><b>판매자 모드</b><button class="lnk" id="exit">나가기</button></header>
   <div class="tabs">${T.map(t=>`<button data-t="${t[0]}" class="${S.tab===t[0]?'on':''}">${t[1]}</button>`).join('')}</div>
   <div style="padding:14px" id="pane"></div>
   <div class="ver">서버 v.${esc(S.data.ver)}</div>
-  ${S.tab==='edit'||S.tab==='pay'?'<div class="cta"><button id="save">저장하기</button></div>':''}`;
+  ${S.tab==='edit'||S.tab==='pay'?'<div class="cta acta"><button id="save">저장하기</button></div>':''}`;
   document.getElementById('exit').onclick=()=>{S.token=null;S.data=null;load()};
   app.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{S.tab=b.dataset.t;admin()});
   ({orders:pOrders,edit:pEdit,pay:pPay,set:pSet})[S.tab]();
@@ -456,7 +459,7 @@ function pEdit(){
    <div class="f"><label>산지·상품 소개</label><textarea data-k="intro">${esc(d.intro)}</textarea></div>
    <div class="f"><label>대표 이미지 주소 (선택)</label><input data-k="hero" value="${esc(d.hero)}" placeholder="https://..."><p class="hint">구글 드라이브 사진은 공유를 '링크가 있는 모든 사용자'로 바꾼 뒤, 공유 링크를 그대로 붙여넣으면 됩니다.</p></div>
    <div class="f"><label>발송 안내 문구</label><input data-k="ship" value="${esc(d.ship)}"></div>
-   <div class="f"><label>블로그 주소 (선택)</label><input data-k="blog" value="${esc(d.blog||'')}" placeholder="https://m.blog.naver.com/..." inputmode="url"><p class="hint">구매 화면 맨 위 '하늘뫼농원' 아래에 '네이버 블로그 바로가기'로 보입니다. 비우면 표시하지 않습니다.</p></div>
+   <div class="f"><label>블로그 주소 (선택)</label><input data-k="blog" value="${esc(d.blog||'')}" placeholder="https://m.blog.naver.com/..." inputmode="url"><p class="hint">구매 화면 맨 위 '안동 하늘뫼농원' 위에 '네이버 블로그 바로가기'로 보입니다. 비우면 표시하지 않습니다.</p></div>
    <div class="f"><label>문의전화 또는 이메일 (선택)</label><input data-k="contact" value="${esc(d.contact||'')}" placeholder="예: 010-1234-5678 / farm@example.com"></div>
    <div class="f"><label>1인당 최대 신청 개수</label><input type="number" inputmode="numeric" data-k="maxQty" value="${esc(d.maxQty||10)}"><p class="hint">구매자가 한 번에 신청할 수 있는 최대 수량입니다. (1~20개 사이로 설정됩니다)</p></div></div>
   <div class="box"><div class="h"><span>옵션 (종류별 재고 포함)</span><button class="btn g" data-a="addo">+ 추가</button></div>
@@ -513,5 +516,14 @@ function bind(pane){
     pEdit();
   });
 }
+(()=>{const vv=window.visualViewport;if(!vv)return; // 지원하지 않는 브라우저는 아무것도 하지 않음
+  const isField=el=>!!el&&(el.tagName==='TEXTAREA'||(el.tagName==='INPUT'&&!/^(checkbox|radio|button|submit|file|date)$/.test(el.type)));
+  let base=vv.height;
+  const upd=()=>{const f=isField(document.activeElement);if(!f)base=Math.max(base,vv.height);
+    document.body.classList.toggle('kb',S.view==='admin'&&f&&vv.height<base*0.75)};
+  vv.addEventListener('resize',upd,{passive:true});
+  document.addEventListener('focusin',upd);document.addEventListener('focusout',()=>setTimeout(upd,60));
+  addEventListener('orientationchange',()=>setTimeout(()=>{base=vv.height;upd()},400));
+})();
 load();
 </script></body></html>
