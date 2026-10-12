@@ -1,6 +1,6 @@
 /** 하늘뫼농원 주문앱 - Code.gs (구글 시트에 연결된 스크립트)
  *  화면은 GitHub Pages(SITE)에 있고, 이 스크립트는 doPost로 데이터만 주고받습니다. */
-const VER = 'v16';
+const VER = 'v17';
 const SITE = 'https://andong-apple.github.io/';
 const ORD = '현재주문', CFG = '설정', TZ = 'Asia/Seoul';
 // 한 주문에 받는 곳이 여러 개면 받는 곳마다 한 줄. 입금자·옵션·수량·금액·상태는 맨 윗줄에만 기록
@@ -37,7 +37,7 @@ function doGet() {
 /* ---------- 화면(GitHub Pages)과 데이터를 주고받는 통로 ---------- */
 const API = { getPublic: getPublic, submitOrder: submitOrder, login: login, adminData: adminData,
   saveConfig: saveConfig, setStatus: setStatus, newRound: newRound, changePw: changePw,
-  cancelOrder: cancelOrder, purgeOld: purgeOld };
+  cancelOrder: cancelOrder, purgeOld: purgeOld, markLotte: markLotte };
 function doPost(e) {
   let out;
   try {
@@ -276,7 +276,7 @@ function adminData(t) {
   const x = init_();
   const last = x.o.getLastRow();
   const rows = last > 1 ? x.o.getRange(2, 1, last - 1, HEAD.length).getDisplayValues() : [];
-  return { cfg: readCfg_(x.c), head: HEAD, orders: rows, url: ss_().getUrl(), ver: VER, bankAt: PROPS().getProperty('BANKAT') || '' };
+  return { cfg: readCfg_(x.c), head: HEAD, orders: rows, url: ss_().getUrl(), ver: VER, bankAt: PROPS().getProperty('BANKAT') || '', lotteAt: PROPS().getProperty('LOTTEAT') || '' };
 }
 
 function saveConfig(t, cfg, pw) {
@@ -353,6 +353,15 @@ function changePw(t, cur, nw) {
   PROPS().setProperty('GEN', g); // 다른 기기의 로그인은 모두 해제
   CacheService.getScriptCache().put('t' + t, g, 21600); // 지금 기기는 그대로 유지
   return { ok: true };
+}
+
+/** 택배 엑셀을 받으면, 엑셀에 들어간 주문 중 가장 늦은 주문시각을 기록 ('새로운 판매 시작' 전 경고에 사용) */
+function markLotte(t, at) {
+  auth_(t);
+  if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(at || '')) return { ok: false };
+  const P = PROPS(), cur = P.getProperty('LOTTEAT') || '';
+  if (at > cur) P.setProperty('LOTTEAT', at);
+  return { ok: true, lotteAt: at > cur ? at : cur };
 }
 
 /** 주문 취소: 상태를 '취소'로 바꾸고 그 주문 수량만큼 재고를 되돌림 */

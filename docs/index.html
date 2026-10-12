@@ -123,7 +123,7 @@ const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth
 /* 인앱 안내창 (브라우저 기본 alert/confirm/prompt 대신 사용 - 주소 표시줄 문구 없이 깔끔하게) */
 function modal(msg,o){o=o||{};return new Promise(res=>{
   const m=document.createElement('div');m.className='mo';
-  m.innerHTML=`<div class="mb"><p>${nl(msg)}</p>${o.input?`<input id="mi" type="${o.type||'text'}" value="${esc(o.val||'')}" ${o.type==='number'?'inputmode="numeric"':''} autocomplete="off">`:''}<div class="bt">${o.input||o.confirm?'<button id="mc">취소</button>':''}<button class="ok" id="mk">확인</button></div></div>`;
+  m.innerHTML=`<div class="mb"><p>${nl(msg)}</p>${o.input?`<input id="mi" type="${o.type||'text'}" value="${esc(o.val||'')}" ${o.type==='number'?'inputmode="numeric"':''} autocomplete="off">`:''}<div class="bt">${o.input||o.confirm?`<button id="mc">${esc(o.no||'취소')}</button>`:''}<button class="ok" id="mk">${esc(o.yes||'확인')}</button></div></div>`;
   document.body.appendChild(m);const i=m.querySelector('#mi');if(i)i.focus();
   const done=v=>{m.remove();res(v)};
   m.querySelector('#mk').onclick=()=>done(o.input?i.value:true);
@@ -345,6 +345,16 @@ function excelLib(){
 /* 상태가 '취소'인지 (시트에서 직접 ' 취소 ', '취소됨' 등으로 적어도 취소로 봄) */
 const isCancel=s=>/^\s*취소/.test(String(s==null?'':s));
 /* 주문표를 주문 단위(맨 윗줄 + 선물 받는 줄)로 묶음 */
+/* 취소되지 않은 주문 중 가장 늦은 주문시각 (택배 엑셀에 어디까지 들어갔는지 기록용) */
+function latestAt(D){
+  const iT=D.head.indexOf('주문시각'),iS=D.head.indexOf('상태');
+  return orderGroups(D).filter(g=>!isCancel(g[0][iS])).map(g=>String(g[0][iT]||'')).sort().pop()||'';
+}
+/* 택배 엑셀에 아직 안 들어간(마지막으로 받은 뒤에 들어온) 주문 수 */
+function notExported(D){
+  const iT=D.head.indexOf('주문시각'),iS=D.head.indexOf('상태'),at=D.lotteAt||'';
+  return orderGroups(D).filter(g=>!isCancel(g[0][iS])&&String(g[0][iT]||'')>at).length;
+}
 function orderGroups(D){
   const iT=D.head.indexOf('주문시각'),gs=[];
   D.orders.forEach(r=>{const g=gs[gs.length-1];if(g&&r[0]===g[0][0]&&iT>=0&&!r[iT])g.push(r);else gs.push([r])});
@@ -401,7 +411,9 @@ function pOrders(){
       const F=await run('adminData',S.token);S.data=F;
       const nCx=orderGroups(F).filter(gr=>isCancel(gr[0][F.head.indexOf('상태')])).length,rows=lotteRows(F);
       if(!rows.length){await A('보낼 주문이 없습니다.'+(nCx?` (취소 ${nCx}건 제외)`:''));admin();return}
-      await lotteExcel(F);toast(`택배 엑셀 저장: ${rows.length}줄${nCx?` · 취소 ${nCx}건 제외`:''}`);admin();
+      await lotteExcel(F);toast(`택배 엑셀 저장: ${rows.length}줄${nCx?` · 취소 ${nCx}건 제외`:''}`);
+      const at=latestAt(F);if(at)try{const m=await run('markLotte',S.token,at);if(m&&m.lotteAt)S.data.lotteAt=m.lotteAt}catch(e){}
+      admin();
     }catch(err){b.disabled=false;b.textContent='택배 엑셀';await A('택배 엑셀을 만들지 못했습니다. 인터넷 연결을 확인하거나 구글시트를 열어 주세요.')}};
   const iS=D.head.indexOf('상태');
   const setBtn=(b,s)=>{b.dataset.s=s;b.textContent=s;b.classList.toggle('ok',s==='입금확인');
@@ -418,6 +430,12 @@ function pOrders(){
     try{const r=await run('setStatus',S.token,b.dataset.id,n);if(!r.ok)throw new Error('주문을 찾지 못했습니다. 새로고침해 주세요.')}
     catch(e){setBtn(b,was);await A(e.message||e)}});
   document.getElementById('nr').onclick=async()=>{
+    // 택배 엑셀을 받은 뒤에 들어온 주문이 있으면 먼저 알려줌 (최신 주문표 기준)
+    try{const F=await run('adminData',S.token);S.data=F;
+      const left=F.lotteAt===undefined?0:notExported(F);
+      if(left){const go=await modal(`택배 엑셀에 아직 들어가지 않은 주문이 ${left}건 있습니다.\n\n새로운 판매를 시작하면 이 주문들은 보관 탭으로 넘어가서 택배 엑셀에 나오지 않습니다. 택배 엑셀을 먼저 받으세요.`,{confirm:1,yes:'그래도 시작',no:'택배 엑셀 먼저 받기'});
+        if(!go){await admin();document.getElementById('xlsx').click();return}}
+    }catch(e){await A(e.message||e);return}
     const n=await P('모든 옵션의 재고를 같은 값으로 초기화할까요? 비우고 확인을 누르면 현재 재고값을 그대로 유지합니다.','number','');
     if(n===null)return;
     if(!await C('현재 주문을 새 탭으로 보관하고 주문표를 비웁니다. 진행할까요?'))return;
