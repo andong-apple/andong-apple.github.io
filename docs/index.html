@@ -178,7 +178,7 @@ function buyer(preview,keep){
   <section class="card w"><div class="lbl">입금 계좌</div><div class="acc"><div class="accrow"><span>${esc(c.bank.bank)} ${esc(c.bank.no)}</span>${c.bank.no?'<button class="btn sm" id="cpacc">복사</button>':''}</div><small>예금주 ${esc(c.bank.holder)}</small></div>${c.contact?`<div class="lbl" style="margin-top:12px">문의</div><div class="acc" style="font-size:15px;font-weight:500">${linkContact(c.contact)}</div>`:''}</section>
   <section class="card w">${out?'<div class="sold">품절되었습니다</div>':''}
     <div class="f"><label>옵션 선택</label><select id="opt" ${out?'disabled':''}>${c.options.map((o,i)=>{const st=Number(o.stock)||0;return `<option value="${i}" ${st<=0?'disabled':''}>${esc(optLabel(o))} - ${won(o.price)}${st<=0?' (품절)':''}</option>`}).join('')}</select></div>
-    <div class="f"><label>총 수량</label><select id="qty" ${out?'disabled':''}></select></div>
+    <div class="f"><label>총 수량</label><select id="qty" ${out?'disabled':''}></select><p class="hint">총 수량을 2개 이상으로 하면 배송지 추가 가능합니다.</p></div>
     <div class="f"><label>입금일자</label><input type="date" id="date" value="${today()}" ${out?'disabled':''}></div>
     <div class="f"><label>입금자명</label><input id="name" maxlength="30" placeholder="입금자명" ${out?'disabled':''}></div>
     <div class="f" style="margin:0"><label>연락처</label><div class="ph"><span>010</span><input id="phone" inputmode="numeric" maxlength="9" placeholder="0000-0000" ${out?'disabled':''}></div></div>
@@ -229,7 +229,7 @@ function renderRc(off){
       <input data-r="${k}" data-f="detail" maxlength="80" placeholder="상세주소 (동·호수 등)" value="${esc(r.detail)}" ${dis}></div>
     ${!many?'':k===0?`<div class="qline ${rest<1?'bad':''}">보낼 수량 <b>${rest<1?'수량 부족':rest+'개'}</b><small>총 수량에서 다른 받는 곳을 뺀 나머지</small></div>`
       :`<div class="f" style="margin:0"><label>보낼 수량</label><select data-r="${k}" data-f="qty" ${dis}>${Array.from({length:Math.max(1,total-1)},(_,i)=>`<option ${r.qty==i+1?'selected':''}>${i+1}</option>`).join('')}</select></div>`}
-  </section>`}).join('')+`<div class="addrc">${rest>1||!many&&total>1?`<button class="btn" id="addrc" ${dis}>+ 받는 곳 추가 (선물 보내기)</button>`:`<p class="hint">${total>1?'남은 수량이 없어 받는 곳을 더 추가할 수 없습니다.':'총 수량을 2개 이상으로 하면 다른 곳에도 보낼 수 있습니다.'}</p>`}</div>`;
+  </section>`}).join('')+`<div class="addrc">${rest>1||!many&&total>1?`<button class="btn" id="addrc" ${dis}>+ 받는 곳 추가 (선물 보내기)</button>`:total>1?'<p class="hint">남은 수량이 없어 받는 곳을 더 추가할 수 없습니다.</p>':''}</div>`;
   if(off)return;
   box.querySelectorAll('[data-f]').forEach(el=>el[el.tagName==='SELECT'?'onchange':'oninput']=()=>{
     const r=S.rc[el.dataset.r],f=el.dataset.f;
