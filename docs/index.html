@@ -63,6 +63,7 @@ tr.sub td{border-top:0;background:#fafaf5}
 .cxbtn{margin-left:4px;padding:3px 8px;border-radius:99px;background:#fff;border:1px solid #e3b3b3;color:#c33;font-size:12px;font-weight:700}
 .stx{padding:3px 8px;border-radius:99px;background:#eee;color:#999;font-size:12px;font-weight:700}
 tr.cx td{color:#aaa;text-decoration:line-through}tr.cx td:last-child{text-decoration:none}
+.accrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .ph{display:flex;gap:8px;align-items:center}.ph span{padding:12px 14px;background:#eef0e0;border-radius:10px;font-weight:700}
 .row{display:flex;gap:8px}.row>*{flex:1}
 .cta{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #eee;z-index:6}
@@ -144,6 +145,13 @@ async function load(keep){
     if(!c)app.innerHTML=`<div class="done"><p>불러오지 못했습니다.</p><p><button class="btn" onclick="location.reload()">새로고침</button></p>${isKakao?'<p><button class="btn g" onclick="openOut()">다른 브라우저로 열기</button></p>':''}</div>`;
   }
 }
+/* 문의 문구 속 전화번호는 누르면 전화, 이메일은 메일 쓰기로 연결 */
+function linkContact(t){
+  const re=/(0\d{1,2}[-.\s]?\d{3,4}[-.\s]?\d{4})|([\w.+-]+@[\w-]+\.[\w.-]+)/g;let out='',i=0,m;
+  while((m=re.exec(t))){out+=esc(t.slice(i,m.index));
+    out+=m[1]?`<a class="tel" href="tel:${m[1].replace(/\D/g,'')}">${esc(m[1])}</a>`:`<a class="tel" href="mailto:${esc(m[2])}">${esc(m[2])}</a>`;i=re.lastIndex}
+  return out+esc(t.slice(i));
+}
 const optLabel=o=>o.tag?o.name+' ('+o.tag+')':o.name;
 const stLabel=n=>n<=0?['out','품절']:n<=5?['low','잔여 '+n+'개']:['ok','잔여 '+n+'개'];
 
@@ -167,7 +175,7 @@ function buyer(preview,keep){
     <div class="opts">${c.options.map(o=>{const s=stLabel(Number(o.stock)||0);return `<div class="opt"><div><b>${esc(o.name)}</b>${o.tag?`<span class="tag">${esc(o.tag)}</span>`:''}</div><div class="d">${esc(o.desc)}</div><div class="p">${won(o.price)}</div><div class="st ${s[0]}">${s[1]}</div></div>`}).join('')}</div>
     ${c.ship?`<div class="ship">${esc(c.ship)}</div>`:''}</section>
   ${c.sections.length?`<section class="body">${c.sections.map(s=>`<h2>${esc(s.title)}</h2><ul>${s.items.map(i=>`<li>${esc(i)}</li>`).join('')}</ul><hr>`).join('')}</section>`:''}
-  <section class="card w"><div class="lbl">입금 계좌</div><div class="acc">${esc(c.bank.bank)} ${esc(c.bank.no)}<small>예금주 ${esc(c.bank.holder)}</small></div>${c.contact?`<div class="lbl" style="margin-top:12px">문의</div><div class="acc" style="font-size:15px;font-weight:500">${esc(c.contact)}</div>`:''}</section>
+  <section class="card w"><div class="lbl">입금 계좌</div><div class="acc"><div class="accrow"><span>${esc(c.bank.bank)} ${esc(c.bank.no)}</span>${c.bank.no?'<button class="btn sm" id="cpacc">복사</button>':''}</div><small>예금주 ${esc(c.bank.holder)}</small></div>${c.contact?`<div class="lbl" style="margin-top:12px">문의</div><div class="acc" style="font-size:15px;font-weight:500">${linkContact(c.contact)}</div>`:''}</section>
   <section class="card w">${out?'<div class="sold">품절되었습니다</div>':''}
     <div class="f"><label>옵션 선택</label><select id="opt" ${out?'disabled':''}>${c.options.map((o,i)=>{const st=Number(o.stock)||0;return `<option value="${i}" ${st<=0?'disabled':''}>${esc(optLabel(o))} - ${won(o.price)}${st<=0?' (품절)':''}</option>`}).join('')}</select></div>
     <div class="f"><label>총 수량</label><select id="qty" ${out?'disabled':''}></select></div>
@@ -196,6 +204,7 @@ function buyer(preview,keep){
     el.value=kept[id];if(id==='opt')fillQty()});if(!qtyEl.value)qtyEl.selectedIndex=0}
   renderRc(out);
   $('agree').onchange=e=>{S.agree=e.target.checked};
+  if($('cpacc'))$('cpacc').onclick=async()=>{await copyText(String(c.bank.no).replace(/[^\d]/g,''));toast('계좌번호가 복사되었습니다')};
   $('go').onclick=submit;
 }
 /* '입금자와 동일'이 체크돼 있으면 첫 번째 받는 곳의 이름·연락처를 입금자 정보로 맞춤 */
