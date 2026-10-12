@@ -342,18 +342,22 @@ function excelLib(){
     s.integrity='sha512-dlPw+ytv/6JyepmelABrgeYgHI0O+frEwgfnPdXDTOIZz+eDgfW07QXG02/O8COfivBdGNINy+Vex+lYmJ5rxw==';s.crossOrigin='anonymous';s.onload=ok;s.onerror=ng;document.head.appendChild(s)});
 }
 /* 주문표 한 줄 = 받는 곳 하나. 입금자·옵션은 주문의 맨 윗줄에만 있으므로 아랫줄은 윗줄 값을 이어받음 */
+/* 상태가 '취소'인지 (시트에서 직접 ' 취소 ', '취소됨' 등으로 적어도 취소로 봄) */
+const isCancel=s=>/^\s*취소/.test(String(s==null?'':s));
+/* 주문표를 주문 단위(맨 윗줄 + 선물 받는 줄)로 묶음 */
+function orderGroups(D){
+  const iT=D.head.indexOf('주문시각'),gs=[];
+  D.orders.forEach(r=>{const g=gs[gs.length-1];if(g&&r[0]===g[0][0]&&iT>=0&&!r[iT])g.push(r);else gs.push([r])});
+  return gs;
+}
+/* 택배 엑셀 행 만들기. 취소된 주문은 선물 받는 줄까지 통째로 제외 */
 function lotteRows(D){
   const g=h=>D.head.indexOf(h),v=(r,h)=>{const i=g(h);return i<0||r[i]==null?'':String(r[i])};
-  let top=null;
-  return D.orders.filter(r=>{
-    if(v(r,'주문시각')||!top||top[0]!==r[0])top=r;
-    return v(top,'상태')!=='취소';
-  }).map(r=>{
-    if(v(r,'주문시각')||!top||top[0]!==r[0])top=r;
+  return orderGroups(D).filter(gr=>!isCancel(v(gr[0],'상태'))).flatMap(gr=>{const top=gr[0];return gr.map(r=>{
     const qty=Number(String(v(r,'보낼수량')||v(top,'수량')).replace(/\D/g,''))||1;
     // A받는사람 B주소 C전화번호1 D전화번호2 E상품명1 F수량 G우편번호 H보내는사람 I주소(지정) J전화번호1(지정)
     return [v(r,'받는사람')||v(top,'입금자명'),v(r,'배송지'),v(r,'받는사람연락처')||v(top,'연락처'),'',v(top,'옵션'),qty,v(r,'우편번호'),v(top,'입금자명'),SENDER_ADDR,v(top,'연락처')];
-  });
+  })});
 }
 async function lotteExcel(D){
   await excelLib();
@@ -371,14 +375,13 @@ async function copyText(t){try{await navigator.clipboard.writeText(t)}catch(e){c
 function cell(h,c,id){
   if((h==='연락처'||h==='받는사람연락처')&&c)return `<td><a class="tel" href="sms:${esc(c.replace(/\D/g,''))}">${esc(c)}</a></td>`;
   if(h==='배송지'&&c)return `<td><button class="cpy" data-c="${esc(c)}">${esc(c)}<i>복사</i></button></td>`;
-  if(h==='상태'&&c==='취소')return '<td><span class="stx">취소됨</span></td>';
+  if(h==='상태'&&isCancel(c))return '<td><span class="stx">취소됨</span></td>';
   if(h==='상태'&&c)return `<td style="white-space:nowrap"><button class="stbtn ${c==='입금확인'?'ok':''}" data-id="${esc(id)}" data-s="${esc(c)}">${esc(c)}</button><button class="cxbtn" data-cx="${esc(id)}">취소</button></td>`;
   return `<td>${esc(c)}</td>`}
 function pOrders(){
   const idx=COLS.map(c=>S.data.head.indexOf(c[0])),pick=r=>idx.map(i=>i<0||r[i]==null?'':r[i]);
-  const D=S.data,pane=document.getElementById('pane'),iT=D.head.indexOf('주문시각'),groups=[];
-  D.orders.forEach(r=>{const g=groups[groups.length-1];if(g&&r[0]===g[0][0]&&iT>=0&&!r[iT])g.push(r);else groups.push([r])});
-  const iS0=D.head.indexOf('상태'),isCx=g=>g[0][iS0]==='취소',ncx=groups.filter(isCx).length;
+  const D=S.data,pane=document.getElementById('pane'),iT=D.head.indexOf('주문시각'),groups=orderGroups(D);
+  const iS0=D.head.indexOf('상태'),isCx=g=>isCancel(g[0][iS0]),ncx=groups.filter(isCx).length;
   const cxIds=new Set(groups.filter(isCx).map(g=>g[0][0]));
   const rows=groups.reverse().flat();
   pane.innerHTML=`<div class="box"><div class="h"><span>총 ${groups.length-ncx}건${ncx?` <small style="color:#999;font-weight:500">(취소 ${ncx}건 별도)</small>`:''}</span><button class="btn" id="rf">새로고침</button></div>
@@ -391,10 +394,15 @@ function pOrders(){
   const text=()=>[names].concat(D.orders.map(pick)).map(r=>r.join('\t')).join('\n');
   document.getElementById('cp').onclick=async()=>{await copyText(text());toast('복사되었습니다')};
   pane.querySelectorAll('.cpy').forEach(b=>b.onclick=async()=>{await copyText(b.dataset.c);toast('주소가 복사되었습니다')});
-  document.getElementById('xlsx').onclick=async()=>{
-    if(!lotteRows(D).length){await A('보낼 주문이 없습니다. (취소된 주문은 제외됩니다)');return}
-    try{await lotteExcel(D);toast('택배 엑셀을 저장했습니다')}
-    catch(e){await A('택배 엑셀을 만들지 못했습니다. 인터넷 연결을 확인하거나 구글시트를 열어 주세요.')}};
+  document.getElementById('xlsx').onclick=async e=>{
+    const b=e.currentTarget;b.disabled=true;b.textContent='최신 주문 확인 중...';
+    try{
+      // 다른 기기나 시트에서 방금 취소한 주문도 빠지도록 최신 주문표로 만듦
+      const F=await run('adminData',S.token);S.data=F;
+      const nCx=orderGroups(F).filter(gr=>isCancel(gr[0][F.head.indexOf('상태')])).length,rows=lotteRows(F);
+      if(!rows.length){await A('보낼 주문이 없습니다.'+(nCx?` (취소 ${nCx}건 제외)`:''));admin();return}
+      await lotteExcel(F);toast(`택배 엑셀 저장: ${rows.length}줄${nCx?` · 취소 ${nCx}건 제외`:''}`);admin();
+    }catch(err){b.disabled=false;b.textContent='택배 엑셀';await A('택배 엑셀을 만들지 못했습니다. 인터넷 연결을 확인하거나 구글시트를 열어 주세요.')}};
   const iS=D.head.indexOf('상태');
   const setBtn=(b,s)=>{b.dataset.s=s;b.textContent=s;b.classList.toggle('ok',s==='입금확인');
     const row=D.orders.find(r=>r[0]===b.dataset.id&&r[iS]);if(row)row[iS]=s};
