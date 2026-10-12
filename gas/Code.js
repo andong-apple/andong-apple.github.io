@@ -1,6 +1,6 @@
 /** 하늘뫼농원 주문앱 - Code.gs (구글 시트에 연결된 스크립트)
  *  화면은 GitHub Pages(SITE)에 있고, 이 스크립트는 doPost로 데이터만 주고받습니다. */
-const VER = 'v18';
+const VER = 'v20';
 const SITE = 'https://andong-apple.github.io/';
 const ORD = '현재주문', CFG = '설정', TZ = 'Asia/Seoul';
 // 한 주문에 받는 곳이 여러 개면 받는 곳마다 한 줄. 입금자·옵션·수량·금액·상태는 맨 윗줄에만 기록
@@ -286,7 +286,7 @@ function saveConfig(t, cfg, pw) {
   const clean = {
     name: str(cfg.name, 60), intro: str(cfg.intro, 500), hero: str(cfg.hero, 500), ship: str(cfg.ship, 100),
     contact: str(cfg.contact, 100), blog: /^https?:\/\/\S+$/.test(String(cfg.blog || '').trim()) ? str(String(cfg.blog).trim(), 300) : '',
-    maxQty: Math.min(20, Math.max(1, Math.floor(Number(cfg.maxQty) || 10))),
+    maxQty: Math.min(100, Math.max(1, Math.floor(Number(cfg.maxQty) || 10))),
     options: (cfg.options || []).slice(0, 20).map(function (o) {
       return {
         name: str(o.name, 60), tag: str(o.tag, 10), desc: str(o.desc, 100),

@@ -461,7 +461,7 @@ function pEdit(){
    <div class="f"><label>발송 안내 문구</label><input data-k="ship" value="${esc(d.ship)}"></div>
    <div class="f"><label>블로그 주소 (선택)</label><input data-k="blog" value="${esc(d.blog||'')}" placeholder="https://m.blog.naver.com/..." inputmode="url"><p class="hint">구매 화면 맨 위 '안동 하늘뫼농원' 위에 '네이버 블로그 바로가기'로 보입니다. 비우면 표시하지 않습니다.</p></div>
    <div class="f"><label>문의전화 또는 이메일 (선택)</label><input data-k="contact" value="${esc(d.contact||'')}" placeholder="예: 010-1234-5678 / farm@example.com"></div>
-   <div class="f"><label>1인당 최대 신청 개수</label><input type="number" inputmode="numeric" data-k="maxQty" value="${esc(d.maxQty||10)}"><p class="hint">구매자가 한 번에 신청할 수 있는 최대 수량입니다. (1~20개 사이로 설정됩니다)</p></div></div>
+   <div class="f"><label>1인당 최대 신청 개수</label><input type="number" inputmode="numeric" data-k="maxQty" value="${esc(d.maxQty||10)}"><p class="hint">구매자가 한 번에 신청할 수 있는 최대 수량입니다. (1~100개 사이로 설정됩니다)</p></div></div>
   <div class="box"><div class="h"><span>옵션 (종류별 재고 포함)</span><button class="btn g" data-a="addo">+ 추가</button></div>
    ${d.options.map((o,i)=>`<div style="border-top:1px solid #eee;padding-top:10px;margin-top:10px"><div class="row f"><input data-k="options.${i}.name" value="${esc(o.name)}" placeholder="옵션명 (예: 감홍사과 2kg)"><input style="max-width:90px" data-k="options.${i}.tag" value="${esc(o.tag)}" placeholder="뱃지"></div>
    <div class="row f"><input data-k="options.${i}.desc" value="${esc(o.desc)}" placeholder="구성 (예: 5 - 6입)"></div>
